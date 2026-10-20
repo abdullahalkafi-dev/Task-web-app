@@ -1,0 +1,17 @@
+node_modules
+dist
+.next
+.env
+uploads
+frontend/public/sw.js
+frontend/public/sw.js.map
+frontend/public/swe-worker-*.js
+frontend/public/workbox-*.js
+frontend/tsconfig.tsbuildinfo
+frontend/playwright-report
+frontend/test-results
+.env.*
+!.env.example
+graphify-out
+*.log
+frontend/tsconfig.sw.tsbuildinfo

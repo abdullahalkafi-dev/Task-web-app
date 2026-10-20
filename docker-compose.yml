@@ -1,0 +1,63 @@
+# Unique project name so volumes/networks never clash with other stacks on the same host.
+name: task-web-app
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Dhaka}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Dhaka}
+      NODE_ENV: production
+      PORT: 4000
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/dayflow}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
+      UPLOAD_MAX_MB: ${UPLOAD_MAX_MB:-10}
+      UPLOAD_DIR: /app/uploads
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:4000
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Dhaka}
+    ports:
+      # Loopback only: a reverse proxy (nginx/Caddy) on the host exposes it over HTTPS.
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+
+volumes:
+  mongo_data:
+  uploads_data:
