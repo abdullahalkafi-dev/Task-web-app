@@ -1,5 +1,6 @@
 #!/bin/bash
-# Renews the Let's Encrypt certificate for Dayflow and reloads the shared nginx. Needs no sudo (uses docker).
+# Renews the Let's Encrypt certificate for Dayflow and reloads the shared nginx. Needs no sudo (uses docker, because
+# certbot's files are owned by root).
 # crontab: 17 3,15 * * * /opt/projects/task-web-app/deploy/renew-ssl.sh >> /opt/projects/task-web-app/ssl-renew.log 2>&1
 set -euo pipefail
 
@@ -14,11 +15,20 @@ docker run --rm \
   -v "${LE_DIR}:/etc/letsencrypt" \
   certbot/certbot renew --webroot -w /var/www/certbot --quiet --no-self-upgrade
 
-LIVE="${LE_DIR}/live/${DOMAIN}"
-if ! cmp -s "${LIVE}/fullchain.pem" "${NGINX_DIR}/ssl/task-web-app.fullchain.pem"; then
-  cp "${LIVE}/fullchain.pem" "${NGINX_DIR}/ssl/task-web-app.fullchain.pem"
-  cp "${LIVE}/privkey.pem" "${NGINX_DIR}/ssl/task-web-app.privkey.pem"
-  chmod 600 "${NGINX_DIR}/ssl/task-web-app.privkey.pem"
+# Copy the live cert into the nginx ssl folder when it differs; prints CHANGED if it did.
+RESULT=$(docker run --rm --entrypoint sh \
+  -v "${LE_DIR}:/le:ro" \
+  -v "${NGINX_DIR}/ssl:/out" \
+  certbot/certbot -c "
+    if ! cmp -s /le/live/${DOMAIN}/fullchain.pem /out/task-web-app.fullchain.pem; then
+      cp /le/live/${DOMAIN}/fullchain.pem /out/task-web-app.fullchain.pem
+      cp /le/live/${DOMAIN}/privkey.pem /out/task-web-app.privkey.pem
+      chown 1000:1000 /out/task-web-app.fullchain.pem /out/task-web-app.privkey.pem
+      chmod 600 /out/task-web-app.privkey.pem
+      echo CHANGED
+    fi")
+
+if [ "${RESULT}" = "CHANGED" ]; then
   docker exec silvergym-nginx nginx -t
   docker exec silvergym-nginx nginx -s reload
   echo "${STAMP} certificate renewed and nginx reloaded"
