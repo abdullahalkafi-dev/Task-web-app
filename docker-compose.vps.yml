@@ -1,0 +1,13 @@
+# Extra settings for the shared VPS (used via COMPOSE_FILE in the server's .env).
+# The host's nginx container (project "silvergym") terminates HTTPS on 80/443, so this stack publishes no host port
+# and instead joins that nginx's Docker network, under the unique name "dayflow-web".
+services:
+  dayflow-web:
+    ports: !reset []
+    networks:
+      default: {}
+      silvergym_app-network: {}
+
+networks:
+  silvergym_app-network:
+    external: true

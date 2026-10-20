@@ -5,6 +5,8 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    # Modest cache so this stack is a good neighbour on a shared server.
+    command: ["mongod", "--wiredTigerCacheSizeGB", "0.5"]
     environment:
       TZ: ${TZ:-Asia/Dhaka}
     volumes:
@@ -43,7 +45,9 @@ services:
       retries: 10
       start_period: 10s
 
-  frontend:
+  # Unique service name on purpose: on a shared host this container also joins another stack's proxy network,
+  # where a generic name like "frontend" would collide with that stack's services.
+  dayflow-web:
     build:
       context: ./frontend
       args:
