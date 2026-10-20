@@ -18,7 +18,8 @@ services:
       retries: 10
       start_period: 15s
 
-  backend:
+  # Unique name (see dayflow-web): the web container shares a network with another stack that also has a "backend".
+  dayflow-api:
     build:
       context: ./backend
     restart: unless-stopped
@@ -51,10 +52,10 @@ services:
     build:
       context: ./frontend
       args:
-        BACKEND_URL: http://backend:4000
+        BACKEND_URL: http://dayflow-api:4000
     restart: unless-stopped
     depends_on:
-      backend:
+      dayflow-api:
         condition: service_healthy
     environment:
       TZ: ${TZ:-Asia/Dhaka}

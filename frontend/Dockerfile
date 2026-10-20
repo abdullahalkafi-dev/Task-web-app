@@ -6,7 +6,7 @@ RUN npm ci
 
 FROM node:20-alpine AS build
 WORKDIR /app
-ARG BACKEND_URL=http://backend:4000
+ARG BACKEND_URL=http://dayflow-api:4000
 ENV BACKEND_URL=$BACKEND_URL NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
