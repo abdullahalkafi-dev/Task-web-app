@@ -12,6 +12,8 @@ Windows desktop is in `desktop/` (Electron, TypeScript, electron-builder). It lo
   E2E: build both, then `npm run e2e` in `frontend/` (Google is faked in `frontend/e2e/stub-google.mjs`).
 
 ## Deploying
+
+Documentation entry point: `docs/README.md`. For meaningful future changes, update the relevant contracts/runbooks and append actual commits, checks, deployment/artifact evidence and remaining work to `docs/AUDIT_LOG.md`. Separate user-reported feedback from independently verified checks; never record tokens, secrets or personal content.
 Live at https://task-web-app.silverjeanscloth.com on a **shared VPS** (`ssh -p 2222 deploy@72.61.246.98`).
 Push to `main`, then run `/opt/projects/task-web-app/deploy/update.sh` on the server.
 Read `deploy/README.md` before touching anything on the server. Key rules:

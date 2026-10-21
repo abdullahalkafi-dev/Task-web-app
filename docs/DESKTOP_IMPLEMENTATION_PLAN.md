@@ -1,5 +1,7 @@
 # Desktop implementation checklist
 
+See the [audit log](AUDIT_LOG.md) for dated source/deployment history and owner feedback, and the [documentation index](README.md) for future change workflow.
+
 Target: private Windows 11 x64 installer for the owner and friends. Hosted shared interface, per-user existing accounts, offline access after setup, fast sync, manual upgrades.
 
 - [x] Strict-TypeScript Electron package, independent lockfile, root commands, shared bridge v1.
@@ -23,3 +25,5 @@ Installer: `Dayflow-Setup-1.0.0-x64.exe`, 102,516,873 bytes. SHA-256: `650434481
 The final save-boundary follow-up passed all 15 browser and both Electron scenarios, including closing a task editor immediately before collapse, and was deployed with an additional backup at `/home/deploy/backups/task-web-app/desktop-20261021T160055Z`. Cached HTML now receives a fresh build revision; its production build and all three offline/image/restart regression scenarios passed.
 
 Manual checks not automated: real Google account approval, Windows login startup, multiple physical monitors/scaling, installer upgrade/uninstall and exclusive full-screen behavior. No signing certificate or automatic desktop update channel is configured.
+
+Final release confirmation: live application revision `559c9f6`; the final probe confirmed fresh shell revisions and authenticated SSE delivery in 12ms. The packaged executable passed again against that deployment. The owner subsequently reported the app working; individual remaining manual scenarios were not inferred from that general feedback.

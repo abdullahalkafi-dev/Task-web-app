@@ -19,6 +19,11 @@ Common codes: 400 `VALIDATION_ERROR`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `
 | POST | /tasks/:id/copy-to-today | Bearer | server-side copy |
 | POST | /sync/push | Bearer | batch upsert/delete |
 | GET | /sync/pull?since= | Bearer | changes since |
+| GET | /sync/events | Bearer client | user-scoped live change notifications |
+| POST | /auth/desktop/start | none; rate-limited | create proof-bound sign-in request |
+| GET | /auth/desktop/request/:requestId | Bearer or cookie | inspect pending confirmation code |
+| POST | /auth/desktop/approve | Bearer | confirm account/code in browser |
+| POST | /auth/desktop/exchange | verifier proof | poll/consume approved session once |
 | POST | /uploads | Bearer | multipart image |
 | GET | /uploads/:userId/:file | cookie or Bearer | owner only |
 
@@ -75,6 +80,8 @@ All following paths are under `/api/auth/desktop`; responses are `Cache-Control:
 | POST `/exchange` | `{ requestId, verifier }` | 202 `{ pending: true }` or 200 `{ token, user }`, atomic one-time consumption |
 
 Invalid input returns 400; protected routes require authentication; invalid/expired/used requests return 410. Independent rate limits apply. Queries check expiry independently of TTL cleanup. The usual `/auth/me` restores the desktop image cookie after session import.
+
+Production limits per IP per minute: start 10, inspection 40, approval 10, exchange 180. Limits are skipped in tests. Desktop rate limiting currently uses the middleware's default plain-text 429 response; clients should use its status rather than assume JSON for that response.
 
 ## Sync push and pull
 ### POST /sync/push

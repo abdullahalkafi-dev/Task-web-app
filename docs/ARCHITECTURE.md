@@ -65,7 +65,7 @@ Modular: `modules/<name>/{interface,model,validation,service,controller,route,te
 - Client IDs: `crypto.randomUUID()` used as Mongo `_id` (string) → no remapping.
 - Soft deletes via `deletedAt` tombstones; server purges tombstones > 30 days (at boot and every 24 h).
 - One Dexie DB per user: `dayflow_<userId>`.
-- Triggers: app start, `online`, every 30 s, 1 s after a local write (debounced), `visibilitychange`.
+- Triggers: app start, `online`, every 30 s, 1 s after a local write (debounced), `visibilitychange`, and authenticated SSE notifications. One stream leader per user/browser partition receives live notifications; reconnect triggers a pull and polling remains a fallback.
 - Steps: (1) upload pending image blobs, rewrite `blob:` src in HTML → (2) push outbox in batches of 100 (`POST /sync/push`) → (3) pull (`GET /sync/pull?since=`), merge into Dexie, store `lastPulledAt = serverTime`.
 - Conflict: last-write-wins per document by `updatedAt`; server returns the winner.
 - Outbox items are removed only after server ack; exponential backoff 1 s → 60 s. A document whose HTML still references an un-uploaded image (`data-local-id`) is held back until its images are uploaded.

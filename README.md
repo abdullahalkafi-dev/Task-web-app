@@ -59,6 +59,8 @@ docker run --rm -v task-web-app_uploads_data:/data -v $(pwd):/backup alpine tar 
 
 ### Windows desktop companion
 
+Start at the [documentation index](docs/README.md). The [engineering audit log](docs/AUDIT_LOG.md) records decisions, commits, verification, installer fingerprints, deployments and remaining checks.
+
 Dayflow has an Electron desktop package in this repository: floating bubble, compact task/notes panel, full workspace, tray and shortcut. Friends install the same `.exe` and use their own existing account. Deploy the shared frontend/backend desktop changes before distributing it.
 
 Use Node 24. Run `npm --prefix desktop ci`, `npm run desktop:dev` to develop, and `npm run desktop:dist` to create the x64 Windows installer in `desktop/release`. See the [Desktop guide](docs/DESKTOP.md) and [verification checklist](docs/DESKTOP_IMPLEMENTATION_PLAN.md) for setup, offline behavior, sharing, updates and troubleshooting.

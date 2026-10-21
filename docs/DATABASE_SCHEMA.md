@@ -1,6 +1,6 @@
 # Dayflow — Database Schema
 
-MongoDB 7 via Mongoose. All models typed with `I<Entity>` interfaces. `_id` is a string UUID. Timestamps stored as UTC, displayed in Asia/Dhaka.
+MongoDB 7 via Mongoose. Domain models use `I<Entity>` interfaces and string UUID IDs. Desktop handoff request IDs are random hex strings, as specified below. Timestamps are stored as UTC and displayed in Asia/Dhaka.
 
 ## desktoprequests (desktop authentication)
 

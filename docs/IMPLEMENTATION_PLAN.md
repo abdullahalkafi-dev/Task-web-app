@@ -2,6 +2,8 @@
 
 Windows desktop work is tracked separately in [Desktop implementation checklist](DESKTOP_IMPLEMENTATION_PLAN.md), with usage and maintenance in [Desktop guide](DESKTOP.md).
 
+This file preserves earlier web milestones, including auth approaches later replaced by Google-only sign-in. Use the current architecture/API/schema for present behavior. The original Docker-unavailable note below concerns that initial period; Node 24 container builds and live deployment were subsequently verified on 21 October 2026, as recorded in the [audit log](AUDIT_LOG.md).
+
 Every phase ends with: (a) `npm run typecheck` = 0 errors in both packages, (b) `docker compose up -d --build` succeeds, (c) docs updated and the phase ticked here.
 
 > Verification note: the checks below were run locally with Node (typecheck, lint, unit tests, Playwright against a locally started stack). Docker was not available in the authoring environment, so the Dockerfiles and compose file are written to the spec but have **not** been executed — run `docker compose up -d --build` once to confirm on your machine.
