@@ -25,11 +25,12 @@ try {
     await delay(100);
   }
   assert.ok(page, 'Packaged executable must load the configured production origin');
-  await page.getByRole('button', { name: 'Sign in with your browser' }).waitFor({ state: 'visible', timeout: 30_000 });
+  const shellOnly = process.argv.includes('--shell-only');
+  if (!shellOnly) await page.getByRole('button', { name: 'Sign in with your browser' }).waitFor({ state: 'visible', timeout: 30_000 });
   const bridge = await page.evaluate(() => globalThis.dayflowDesktop.getState());
   assert.equal(bridge.version, 1);
   await page.screenshot({ path: 'test-results/packaged-sign-in.png' });
-  log('Packaged executable: production origin, isolated profile, bridge and browser sign-in screen passed.');
+  log(shellOnly ? 'Packaged shell: production origin, isolated profile and bridge passed. Hosted desktop sign-in requires deployment.' : 'Packaged executable: production origin, isolated profile, bridge and browser sign-in screen passed.');
 } finally {
   if (app) { await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined); await app.close().catch(() => undefined); }
   assert.equal(path.dirname(path.resolve(profile)), root, 'Refusing unexpected cleanup target');

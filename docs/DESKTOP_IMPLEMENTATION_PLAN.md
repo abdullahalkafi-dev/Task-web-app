@@ -10,12 +10,16 @@ Target: private Windows 11 x64 installer for the owner and friends. Hosted share
 - [x] Per-user NSIS installer configuration, stable application identity and retained local data.
 - [x] Development, architecture, API, schema, deployment, sharing and troubleshooting documentation.
 - [x] Local verification and installer creation.
-- [ ] Live rollout and packaged executable smoke test.
+- [x] Live rollout and packaged executable smoke test.
 
 ## Verification
 
-Verified on 21 October 2026: strict type/lint checks for all packages; backend 38 unit/integration tests; frontend 31 unit tests; desktop 3 unit tests; all 15 browser E2E tests; both real-Electron E2E scenarios (native validation plus browser handoff, two-way task/note sync, images, retained drafts, account isolation and offline recovery); Node 24 Docker builds for frontend/backend. Compact and expanded screenshots inspected. NSIS x64 installer built successfully.
+Verified on 21 October 2026: strict type/lint checks for all packages; backend 38 unit/integration tests; frontend 32 unit tests; desktop 3 unit tests; all 15 browser E2E tests; both real-Electron E2E scenarios (native validation plus browser handoff, two-way task/note sync, images, retained drafts, account isolation and offline recovery); Node 24 Docker builds for frontend/backend. Compact and expanded screenshots inspected. NSIS x64 installer built successfully.
 
-Pending final rollout: deploy to the existing server with backups, verify production endpoints, and smoke-test the packaged executable. Installer SHA-256 is delivered in `desktop/release/SHA256SUMS.txt`.
+The desktop support was pushed and deployed to the existing site with MongoDB/uploads/proxy backups at `/home/deploy/backups/task-web-app/desktop-20261021T155100Z`. Public health/connect routes, auth validation and unauthenticated stream rejection passed. A short-lived synthetic probe received the authenticated initial SSE event through public nginx/Next.js in 10ms. The packaged executable passed production-origin, isolated-profile, bridge and browser-sign-in-screen checks.
+
+Installer: `Dayflow-Setup-1.0.0-x64.exe`, 102,516,873 bytes. SHA-256: `6504344819b43a8040d399c772c75f77044158c0f14d0db5f5113388027ddde5`. Also delivered in `desktop/release/SHA256SUMS.txt`.
+
+A final frontend save-boundary follow-up keeps closing editors registered until pending writes finish and supports retry. Unit verification passed; final integration verification and the follow-up frontend rollout are tracked before handover.
 
 Manual checks not automated: real Google account approval, Windows login startup, multiple physical monitors/scaling, installer upgrade/uninstall and exclusive full-screen behavior. No signing certificate or automatic desktop update channel is configured.

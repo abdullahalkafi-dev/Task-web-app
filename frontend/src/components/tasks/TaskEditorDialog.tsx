@@ -12,7 +12,7 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { PillTabs } from "../ui/PillTabs";
 import { useToast } from "../ui/Toast";
-import { registerLocalWriter } from "@/lib/local-save";
+import { finishLocalWriter, registerLocalWriter } from "@/lib/local-save";
 
 interface Draft {
   id?: string;
@@ -64,7 +64,7 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
       if (dirty.current) await setMeta(db, draftKey, latestDraft.current);
     };
     const unregister = registerLocalWriter(write);
-    return () => { unregister(); void write(); };
+    return () => { unregister(); finishLocalWriter(write); };
   }, [db, draftKey]);
 
   // Restore a local draft (nothing is lost if the dialog was closed by accident).

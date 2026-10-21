@@ -79,6 +79,14 @@ test("browser handoff, live sync, bubble, retained drafts, isolation, and offlin
   await browserPage.getByRole("button", { name: "Start: Desktop draft survives" }).click();
   await browserPage.getByRole("button", { name: "Complete: Desktop draft survives" }).click();
   await expect(page.getByRole("button", { name: "Reopen: Desktop draft survives" })).toBeVisible({ timeout: 8000 });
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await page.getByLabel("Task title").fill("Closing editor draft");
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => window.dayflowDesktop!.collapse());
+  await bubble.getByRole("button", { name: "Open Dayflow" }).click();
+  await page.getByRole("button", { name: "Add task", exact: true }).click();
+  await expect(page.getByLabel("Task title")).toHaveValue("Closing editor draft");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await browserPage.getByRole("button", { name: "New note" }).click();
   await browserPage.getByLabel("Note title").fill("Shared note");
   await browserPage.locator(".ProseMirror").fill("Note from the browser");

@@ -13,7 +13,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Menu } from "../ui/Menu";
 import { Skeleton } from "../ui/Skeleton";
 import { useToast } from "../ui/Toast";
-import { registerLocalWriter } from "@/lib/local-save";
+import { finishLocalWriter, registerLocalWriter } from "@/lib/local-save";
 
 type SaveState = "saved" | "saving";
 
@@ -61,7 +61,10 @@ function NoteEditor({ note, onBack }: { note: NoteDoc; onBack: () => void }) {
     } finally { saving.current = null; }
   }, [db, note.id]);
 
-  useEffect(() => registerLocalWriter(flush), [flush]);
+  useEffect(() => {
+    const unregister = registerLocalWriter(flush);
+    return () => { unregister(); finishLocalWriter(flush); };
+  }, [flush]);
 
   const queue = useCallback(
     (next: { title: string; html: string }) => {
@@ -72,18 +75,6 @@ function NoteEditor({ note, onBack }: { note: NoteDoc; onBack: () => void }) {
     },
     [flush],
   );
-
-  // Never lose the last keystrokes when navigating away.
-  useEffect(() => {
-    return () => {
-      if (pending.current) {
-        const p = pending.current;
-        pending.current = null;
-        void updateNote(db, note.id, { title: p.title, descriptionHtml: p.html });
-      }
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [db, note.id]);
 
   return (
     <div className="flex min-h-full flex-col rounded-panel bg-surface p-4 shadow-sm2 md:p-8" data-testid="note-editor">

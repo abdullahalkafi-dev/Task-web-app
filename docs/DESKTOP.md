@@ -84,6 +84,8 @@ Hosted pages have no Node integration. Sandboxed, context-isolated preloads expo
 
 Before hiding, mode changes and quit, the main process waits for registered editor writes to finish in IndexedDB. A timeout or failure keeps the workspace available for recovery. No network is needed for this boundary. Abrupt OS termination remains subject to ordinary autosave timing.
 
+Editors that have just closed remain registered until their final local write finishes. Storage failures can retry at the next save boundary, so closing an editor and immediately quitting does not skip its pending draft.
+
 ## Deployment and rollback
 
 Deploy the shared frontend/backend changes **before sharing the installer**. Follow the existing shared-VPS runbook. Existing task/note schemas do not change; MongoDB creates a TTL-indexed `desktoprequests` collection automatically.
@@ -91,6 +93,8 @@ Deploy the shared frontend/backend changes **before sharing the installer**. Fol
 The SSE route must stream without buffering through Next.js and nginx. Apply this project's nginx config, run `nginx -t`, then reload gracefully. Verify a real Google handoff and two-client edit after deployment. Polling alone does not prove streaming works.
 
 `deploy/desktop-rollout.sh` creates private MongoDB/uploads/proxy backups, records the previous commit, pulls main, builds before replacing Dayflow's containers, validates this site's proxy update, reloads nginx and checks health. Execute the updated script without first changing the server checkout if the recorded commit must identify the previously deployed version.
+
+`deploy/verify-desktop.cjs` runs inside the API container to check public endpoints and authenticated SSE streaming. It creates a 30-second token for a random nonexistent user, prints no credentials, and performs no account/data writes.
 
 The notification bus assumes one backend process; additional replicas require shared pub/sub. Handoffs persist in MongoDB until expiry. Website rollback must remain compatible with installed bridge v1 clients. Retain a previous installer for desktop rollback and never delete local profiles or database volumes during rollback.
 
