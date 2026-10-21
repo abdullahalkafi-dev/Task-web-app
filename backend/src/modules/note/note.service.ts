@@ -2,6 +2,7 @@ import { AppError } from "../../utils/AppError";
 import { htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
 import type { INote, INoteDTO, INoteUpsert, INoteUpsertResult } from "./note.interface";
 import { NoteModel } from "./note.model";
+import { notifyUser } from "../sync/sync.events";
 
 export function toNoteDTO(n: INote): INoteDTO {
   return {
@@ -48,6 +49,7 @@ async function upsertOne(userId: string, doc: INoteUpsert): Promise<INoteUpsertR
     { upsert: true, returnDocument: "after" },
   ).lean<INote>();
   if (!saved) throw new AppError(500, "INTERNAL", "Failed to save note");
+  notifyUser(userId);
   return { id: doc.id, applied: true, winner: toNoteDTO(saved) };
 }
 

@@ -98,6 +98,8 @@ export interface UserStats {
 }
 
 export const api = {
+  desktopRequest: (requestId: string) => request<{ code: string; expiresAt: string }>("GET", `/auth/desktop/request/${requestId}`),
+  approveDesktop: (requestId: string, code: string) => request<{ ok: true }>("POST", "/auth/desktop/approve", { requestId, code }),
   config: () => request<{ googleClientId: string | null }>("GET", "/auth/config"),
   googleLogin: (credential: string) => request<{ token: string; user: User }>("POST", "/auth/google", { credential }),
   logout: () => request<{ ok: boolean }>("POST", "/auth/logout"),
@@ -114,3 +116,12 @@ export const api = {
     return request<{ url: string; width: number; height: number }>("POST", "/uploads", form);
   },
 };
+
+export async function openChangeStream(signal: AbortSignal): Promise<Response> {
+  const token = tokenGetter();
+  if (!token) throw new ApiError(401, "UNAUTHORIZED", "Sign in to sync");
+  const response = await fetch("/api/sync/events", { headers: { Authorization: `Bearer ${token}` }, credentials: "same-origin", signal, cache: "no-store" });
+  if (response.status === 401) unauthorizedHandler();
+  if (!response.ok || !response.body) throw new ApiError(response.status, "STREAM", "Live sync unavailable");
+  return response;
+}

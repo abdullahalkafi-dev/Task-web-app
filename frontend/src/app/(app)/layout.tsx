@@ -26,7 +26,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   if (status !== "authed" || !user) return <ShellSkeleton />;
   return (
-    <DataProvider userId={user.id}>
+    <DataProvider key={user.id} userId={user.id}>
       <Suspense fallback={<ShellSkeleton />}>
         <AppShell>{children}</AppShell>
       </Suspense>

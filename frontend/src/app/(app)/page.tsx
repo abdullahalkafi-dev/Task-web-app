@@ -23,6 +23,7 @@ import { useTasks } from "@/hooks/useTasks";
 import { deleteTask } from "@/lib/repo";
 import { formatDateKey } from "@/lib/time";
 import type { TaskDoc, TaskStatus } from "@/lib/types";
+import { useDesktop } from "@/hooks/useDesktop";
 
 type View = "board" | "list";
 const VIEW_KEY = "dayflow-view";
@@ -57,6 +58,8 @@ function TodayView() {
   const today = useDhakaToday();
   const tasks = useTasks(today);
   const [view, setView] = useViewPref();
+  const desktop = useDesktop();
+  const effectiveView = desktop?.mode === "compact" ? "list" : view;
   const [editor, setEditor] = useState<{ open: boolean; task: TaskDoc | null; status: TaskStatus }>({ open: false, task: null, status: "notStarted" });
   const [toDelete, setToDelete] = useState<TaskDoc | null>(null);
 
@@ -89,7 +92,7 @@ function TodayView() {
             {formatDateKey(today, "dddd D MMMM")} · resets at midnight
           </p>
         </div>
-        <PillTabs
+        <div className="desktop-view-switch"><PillTabs
           label="View"
           value={view}
           onChange={setView}
@@ -97,7 +100,7 @@ function TodayView() {
             { value: "board", label: "Board", icon: <LayoutGrid size={15} strokeWidth={1.75} /> },
             { value: "list", label: "List", icon: <List size={15} strokeWidth={1.75} /> },
           ]}
-        />
+        /></div>
         <Button plus onClick={openNew} className="hidden md:inline-flex" data-testid="add-task">
           Add task
         </Button>
@@ -109,7 +112,7 @@ function TodayView() {
         </InfoBanner>
       )}
 
-      <StatsRow tasks={tasks ?? []} />
+      <div className="desktop-stats"><StatsRow tasks={tasks ?? []} /></div>
 
       {!tasks ? (
         <BoardSkeleton />
@@ -118,7 +121,7 @@ function TodayView() {
       ) : (
         <TaskBoard
           tasks={tasks}
-          view={view}
+          view={effectiveView}
           seqById={seqById}
           onOpen={openTask}
           onDelete={askDelete}

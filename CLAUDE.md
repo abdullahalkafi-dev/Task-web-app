@@ -3,6 +3,8 @@
 Next.js 15 frontend (`frontend/`) + Express/Mongoose backend (`backend/`) + MongoDB, run with Docker Compose.
 Google sign-in only. Super Admins (emails in `SUPERADMIN_EMAILS`) get a User Management page with counts only.
 
+Windows desktop is in `desktop/` (Electron, TypeScript, electron-builder). It loads the shared hosted frontend and adds a local bubble, compact/expanded workspace, tray and shortcut. Read `docs/DESKTOP.md` for native boundaries, browser handoff, offline behavior and packaging. Root `npm run check` checks all three packages; `npm run desktop:dist` makes the private Windows installer. Use Node 24. Preserve the application identity and persistent session partition across releases. Deploy web/backend desktop support before sharing the installer.
+
 - Backend modules: `backend/src/modules/<name>/{interface,model,validation,service,controller,route,test}`.
 - Frontend: `frontend/src/{app,components,hooks,lib}`; offline-first (Dexie plus an outbox, synced via `/api/sync`).
 - Images are files under `<UPLOAD_DIR>/<userId>/`, served by an authenticated route; not stored in MongoDB.

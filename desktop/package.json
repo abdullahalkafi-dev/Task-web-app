@@ -1,0 +1,58 @@
+{
+  "name": "dayflow-desktop",
+  "version": "1.0.0",
+  "description": "Dayflow tasks and notes for Windows",
+  "author": "Dayflow",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "npm run build && node run.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src test e2e",
+    "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
+    "test:packaged": "node e2e/packaged-smoke.mjs",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "dist": "npm run check && electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^24.0.0",
+    "electron": "^42.0.0",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.0.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  },
+  "build": {
+    "appId": "com.dayflow.desktop",
+    "productName": "Dayflow",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "artifactName": "Dayflow-Setup-${version}-${arch}.${ext}",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true
+    },
+    "publish": null
+  }
+}

@@ -1,5 +1,7 @@
 # Dayflow — Implementation Plan
 
+Windows desktop work is tracked separately in [Desktop implementation checklist](DESKTOP_IMPLEMENTATION_PLAN.md), with usage and maintenance in [Desktop guide](DESKTOP.md).
+
 Every phase ends with: (a) `npm run typecheck` = 0 errors in both packages, (b) `docker compose up -d --build` succeeds, (c) docs updated and the phase ticked here.
 
 > Verification note: the checks below were run locally with Node (typecheck, lint, unit tests, Playwright against a locally started stack). Docker was not available in the authoring environment, so the Dockerfiles and compose file are written to the spec but have **not** been executed — run `docker compose up -d --build` once to confirm on your machine.

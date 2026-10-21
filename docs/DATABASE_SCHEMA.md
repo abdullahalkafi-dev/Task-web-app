@@ -2,6 +2,10 @@
 
 MongoDB 7 via Mongoose. All models typed with `I<Entity>` interfaces. `_id` is a string UUID. Timestamps stored as UTC, displayed in Asia/Dhaka.
 
+## desktoprequests (desktop authentication)
+
+Ephemeral Mongoose collection: `_id` is a random 48-character hex request ID; `challenge` is a SHA-256 base64url verifier hash; `code` is a six-digit confirmation code; `userId` starts null and is set on explicit browser approval; `expiresAt` has a TTL index with `expireAfterSeconds: 0`. Queries enforce the five-minute expiry even before TTL cleanup. Atomic `findOneAndDelete` consumes an approved request once. No raw verifier or JWT is stored. Existing task/note schemas are unchanged.
+
 ## users
 | Field | Type | Notes |
 |---|---|---|

@@ -57,6 +57,14 @@ docker run --rm -v task-web-app_uploads_data:/data -v $(pwd):/backup alpine tar 
 
 ## Development
 
+### Windows desktop companion
+
+Dayflow has an Electron desktop package in this repository: floating bubble, compact task/notes panel, full workspace, tray and shortcut. Friends install the same `.exe` and use their own existing account. Deploy the shared frontend/backend desktop changes before distributing it.
+
+Use Node 24. Run `npm --prefix desktop ci`, `npm run desktop:dev` to develop, and `npm run desktop:dist` to create the x64 Windows installer in `desktop/release`. See the [Desktop guide](docs/DESKTOP.md) and [verification checklist](docs/DESKTOP_IMPLEMENTATION_PLAN.md) for setup, offline behavior, sharing, updates and troubleshooting.
+
+### Web development
+
 ```bash
 # backend (needs a MongoDB, e.g. MONGO_URI=mongodb://localhost:27017/dayflow)
 cd backend && npm ci && npm run dev

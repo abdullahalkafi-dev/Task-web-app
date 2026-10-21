@@ -4,6 +4,12 @@ Offline-first, multi-user daily tasks + permanent notes. All dates/times are **A
 
 ## 1. System diagram
 
+### Windows desktop companion
+
+The Electron desktop package loads the shared hosted frontend in a persistent partition. A separate local bubble opens the same workspace in compact or expanded presentation. Native state uses a versioned isolated preload bridge; task/note logic remains in the frontend's Dexie/outbox layer. Browser and desktop caches are independent.
+
+Browser-based Google sign-in uses an expiring, proof-bound MongoDB handoff. User-scoped SSE at `/api/sync/events` triggers normal push/pull, retaining polling recovery. The notification bus supports the current single backend process. Docker builds use Node 24 to match dependency requirements. See the [Desktop guide](DESKTOP.md).
+
 ```mermaid
 flowchart LR
   subgraph Browser
@@ -76,7 +82,7 @@ Modular: `modules/<name>/{interface,model,validation,service,controller,route,te
 Fractional `orderIndex`: between A,B → (A+B)/2; top → first−1024; bottom → last+1024; renormalize (1024, 2048, …) if gap < 1e-6.
 
 ## 7. Docker topology
-- `mongo` (`mongo:7`, healthcheck ping), `backend` (`node:20-alpine`, waits for healthy mongo), `frontend` (`node:20-alpine`, Next standalone).
+- `mongo` (`mongo:7`, healthcheck ping), `backend` (`node:24-alpine`, waits for healthy mongo), `frontend` (`node:24-alpine`, Next standalone).
 - Volumes: `mongo_data:/data/db`, `uploads_data:/app/uploads`. `TZ=Asia/Dhaka`, `restart: unless-stopped`, non-root users, multi-stage builds.
 - Build stage runs `npm run typecheck` and `npm run lint` before building → any type error fails `docker compose up -d --build`.
 

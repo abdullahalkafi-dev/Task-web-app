@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useSyncOnline } from "@/hooks/useOnline";
 import { api, ApiError } from "@/lib/api";
+import { useDesktop } from "@/hooks/useDesktop";
+import { DesktopSignIn } from "@/components/desktop/DesktopSignIn";
 
 const GSI_SRC = "https://accounts.google.com/gsi/client";
 
@@ -45,6 +47,11 @@ function loadGsi(): Promise<GoogleId> {
 export default function LoginPage() {
   const router = useRouter();
   const { status, loginWithGoogle, expired } = useAuth();
+  const desktop = useDesktop();
+  const destination = (): string => {
+    const id = new URLSearchParams(window.location.search).get("desktopRequest");
+    return id && /^[a-f0-9]{48}$/.test(id) ? `/desktop/connect?request=${id}` : "/";
+  };
   const online = useSyncOnline();
   const buttonRef = useRef<HTMLDivElement>(null);
   const [clientId, setClientId] = useState<string | null | undefined>(undefined);
@@ -54,7 +61,7 @@ export default function LoginPage() {
 
   // Already signed in with a valid session -> straight to the app.
   useEffect(() => {
-    if (status === "authed" && !expired) router.replace("/");
+    if (status === "authed" && !expired) router.replace(destination());
   }, [status, expired, router]);
 
   useEffect(() => {
@@ -74,7 +81,7 @@ export default function LoginPage() {
   }, [online]);
 
   useEffect(() => {
-    if (!clientId || !buttonRef.current) return;
+    if (window.dayflowDesktop || desktop || !clientId || !buttonRef.current) return;
     let cancelled = false;
     const el = buttonRef.current;
     loadGsi()
@@ -86,7 +93,7 @@ export default function LoginPage() {
             setError(null);
             setBusy(true);
             loginWithGoogle(r.credential)
-              .then(() => router.replace("/"))
+              .then(() => router.replace(destination()))
               .catch((err: unknown) => {
                 if (err instanceof ApiError && err.status === 0) setError("Connect to the internet to sign in.");
                 else if (err instanceof ApiError && err.status === 429) setError("Too many attempts. Please wait a minute and try again.");
@@ -104,7 +111,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [clientId, loginWithGoogle, router]);
+  }, [clientId, loginWithGoogle, router, desktop]);
 
   return (
     <main id="main" className="relative grid min-h-dvh place-items-center overflow-hidden bg-canvas px-4 py-10">
@@ -120,7 +127,7 @@ export default function LoginPage() {
           {!online && status !== "authed" && <p className="text-center text-[13px] text-ink-2">Connect to the internet to sign in.</p>}
           {expired && <p className="text-center text-[13px] text-ink-2">Your session expired. Sign in again. Your offline changes are kept.</p>}
           {clientId === null && <FormError message="Google sign-in is not set up on this server yet." />}
-          {clientId && (
+          {desktop ? <DesktopSignIn /> : clientId && (
             <div className="grid min-h-11 place-items-center" aria-busy={busy}>
               {!ready && <Skeleton className="h-11 w-[320px] max-w-full rounded-full" />}
               <div ref={buttonRef} className={busy ? "pointer-events-none opacity-60" : undefined} />

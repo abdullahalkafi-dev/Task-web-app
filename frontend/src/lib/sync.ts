@@ -4,6 +4,7 @@ import { containsLocalImages, dropLocalImage, rewriteLocalImage } from "./html";
 import { shouldApplyRemote } from "./merge";
 import { LOCAL_WRITE_EVENT, nextStamp } from "./repo";
 import type { Entity, NoteDoc, PendingUpload, SyncState, TaskDoc } from "./types";
+import { watchChanges } from "./change-stream";
 
 export interface SyncSnapshot {
   state: SyncState;
@@ -44,6 +45,7 @@ export class SyncEngine {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private channel: BroadcastChannel | null = null;
+  private stopEvents: (() => void) | null = null;
   private cleanups: Array<() => void> = [];
 
   constructor(
@@ -122,9 +124,17 @@ export class SyncEngine {
     void this.refreshPending();
     if (!navigator.onLine) this.set({ state: "offline" });
     this.trigger();
+    this.startEvents();
+  }
+
+  private startEvents(): void {
+    this.stopEvents?.();
+    this.stopEvents = watchChanges(this.userId, () => this.trigger(), () => this.set({ unauthorized: true, state: "error" }));
   }
 
   stop(): void {
+    this.stopEvents?.();
+    this.stopEvents = null;
     this.started = false;
     this.cleanups.forEach((c) => c());
     this.cleanups = [];
@@ -137,6 +147,7 @@ export class SyncEngine {
 
   /** Called after the user signs in again: resume syncing with the new token. */
   clearUnauthorized(): void {
+    if (this.started) this.startEvents();
     if (!this.snapshot.unauthorized) return;
     this.set({ unauthorized: false, state: "syncing" });
     this.trigger();

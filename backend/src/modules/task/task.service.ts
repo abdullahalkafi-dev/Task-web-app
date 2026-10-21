@@ -4,6 +4,7 @@ import { dhakaDateKey } from "../../utils/dhaka";
 import { htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
 import type { ITask, ITaskDTO, ITaskUpsert, ITaskUpsertResult } from "./task.interface";
 import { TaskModel } from "./task.model";
+import { notifyUser } from "../sync/sync.events";
 
 export function toTaskDTO(t: ITask): ITaskDTO {
   return {
@@ -71,6 +72,7 @@ async function upsertOne(userId: string, doc: ITaskUpsert): Promise<ITaskUpsertR
     { upsert: true, returnDocument: "after" },
   ).lean<ITask>();
   if (!saved) throw new AppError(500, "INTERNAL", "Failed to save task");
+  notifyUser(userId);
   return { id: doc.id, applied: true, winner: toTaskDTO(saved) };
 }
 
@@ -106,6 +108,7 @@ export async function copyToToday(userId: string, id: string): Promise<ITaskDTO>
     serverUpdatedAt: now,
     deletedAt: null,
   });
+  notifyUser(userId);
   return toTaskDTO(created.toObject());
 }
 

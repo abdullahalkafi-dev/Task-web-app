@@ -22,7 +22,7 @@ test("an editor image loads through plain <img src> via the login cookie; others
   await expect(img).toBeVisible();
   const src = await img.getAttribute("src");
   expect(src).toMatch(/^\/uploads\/[\w-]+\/[\w-]+\.webp$/);
-  await expect(page.getByTestId("save-indicator")).toHaveText("Saved", { timeout: 10_000 });
+  await expect(page.getByTestId("save-indicator")).toHaveText("Saved on this device", { timeout: 10_000 });
 
   // reload: the image still renders (the httpOnly cookie authenticates the <img> request)
   await page.reload();

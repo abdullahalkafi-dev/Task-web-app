@@ -18,6 +18,8 @@ import { ProfileCard } from "../ui/ProfileCard";
 import { BottomTabBar, type MobileTab } from "./BottomTabBar";
 import { IconRail } from "./IconRail";
 import { TopBar } from "./TopBar";
+import { useDesktop } from "@/hooks/useDesktop";
+import { DesktopToolbar } from "../desktop/DesktopToolbar";
 
 interface ShellValue {
   /** Increments each time something outside Home (e.g. the mobile "+") asks for the task editor. */
@@ -34,6 +36,7 @@ export function useShell(): ShellValue {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const desktop = useDesktop();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -73,8 +76,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <ShellContext.Provider value={ctx}>
-      <div className="min-h-dvh bg-shell">
-        <div className="flex min-h-dvh gap-4 p-3 md:h-dvh md:min-h-0 md:overflow-hidden md:p-4 lg:gap-5">
+      <div className="min-h-dvh bg-shell" data-desktop-mode={desktop?.mode}>
+        {desktop && <DesktopToolbar state={desktop} />}
+        <div className="desktop-frame flex min-h-dvh gap-4 p-3 md:h-dvh md:min-h-0 md:overflow-hidden md:p-4 lg:gap-5">
           <IconRail isAdmin={isAdmin} onHelp={() => setHelp(true)} onLogout={() => void logout()} />
 
           <aside className="hidden w-[260px] shrink-0 lg:block xl:w-[300px]" aria-label="Notes">

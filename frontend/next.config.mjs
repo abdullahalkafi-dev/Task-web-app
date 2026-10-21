@@ -10,6 +10,7 @@ const withSerwist = withSerwistInit({
     { url: "/", revision: "shell-v1" },
     { url: "/history", revision: "shell-v1" },
     { url: "/login", revision: "shell-v1" },
+    { url: "/desktop/connect", revision: "desktop-v1" },
   ],
 });
 

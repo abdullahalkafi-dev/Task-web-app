@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Menu } from "../ui/Menu";
 import { Skeleton } from "../ui/Skeleton";
 import { useToast } from "../ui/Toast";
+import { registerLocalWriter } from "@/lib/local-save";
 
 type SaveState = "saved" | "saving";
 
@@ -25,23 +26,49 @@ function NoteEditor({ note, onBack }: { note: NoteDoc; onBack: () => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const pending = useRef<{ title: string; html: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saving = useRef<Promise<void> | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [editorVersion, setEditorVersion] = useState(0);
+  const current = useRef({ title, html });
+  current.current = { title, html };
+
+  useEffect(() => {
+    if (note.title === current.current.title && note.descriptionHtml === current.current.html) return;
+    if (pending.current || saving.current) {
+      toast.show("This note changed elsewhere. Your current edits are kept while saving.", "info");
+      return;
+    }
+    setTitle(note.title); setHtml(note.descriptionHtml);
+    setEditorVersion((value) => value + 1);
+  }, [note.title, note.descriptionHtml, toast]);
 
   const flush = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
+    if (saving.current) await saving.current;
     const p = pending.current;
     if (!p) return;
     pending.current = null;
-    await updateNote(db, note.id, { title: p.title, descriptionHtml: p.html });
-    setSaveState(pending.current ? "saving" : "saved");
+    saving.current = updateNote(db, note.id, { title: p.title, descriptionHtml: p.html });
+    try {
+      await saving.current;
+      setSaveError(null);
+      setSaveState(pending.current ? "saving" : "saved");
+    } catch (error) {
+      if (!pending.current) pending.current = p;
+      setSaveError("Could not save on this device. Keep Dayflow open and try again.");
+      throw error;
+    } finally { saving.current = null; }
   }, [db, note.id]);
+
+  useEffect(() => registerLocalWriter(flush), [flush]);
 
   const queue = useCallback(
     (next: { title: string; html: string }) => {
       pending.current = next;
       setSaveState("saving");
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void flush(), 800); // 800ms debounce autosave
+      timer.current = setTimeout(() => { void flush().catch(() => undefined); }, 800);
     },
     [flush],
   );
@@ -61,11 +88,11 @@ function NoteEditor({ note, onBack }: { note: NoteDoc; onBack: () => void }) {
   return (
     <div className="flex min-h-full flex-col rounded-panel bg-surface p-4 shadow-sm2 md:p-8" data-testid="note-editor">
       <div className="mb-4 flex items-center gap-2">
-        <Button variant="soft" size="sm" icon={<ArrowLeft size={16} />} onClick={() => void flush().then(onBack)}>
+        <Button variant="soft" size="sm" icon={<ArrowLeft size={16} />} onClick={() => { void flush().then(onBack).catch(() => undefined); }}>
           Back to Today
         </Button>
         <span aria-live="polite" data-testid="save-indicator" className="ml-auto text-xs text-ink-3">
-          {saveState === "saving" ? "Saving…" : "Saved"}
+          {saveState === "saving" ? "Saving…" : "Saved on this device"}
         </span>
         <Menu
           label="Note actions"
@@ -89,11 +116,13 @@ function NoteEditor({ note, onBack }: { note: NoteDoc; onBack: () => void }) {
         maxLength={300}
         className="w-full border-0 bg-transparent text-3xl font-bold tracking-tight text-ink outline-none placeholder:text-ink-3"
       />
+      {saveError && <p role="alert" className="text-sm text-red-700">{saveError}</p>}
       <p className="mb-5 mt-2 text-[13px] text-ink-3" data-testid="note-meta">
         Created {formatDhaka(note.createdAt)} · Last updated {formatDhaka(note.updatedAt)}
       </p>
 
       <RichTextEditor
+        key={editorVersion}
         value={html}
         onChange={(h) => {
           setHtml(h);

@@ -5,6 +5,14 @@ Repo: https://github.com/abdullahalkafi-dev/Task-web-app (public, branch `main`)
 
 ## Everyday workflow
 
+### Desktop companion rollout
+
+Deploy frontend/backend desktop support before sharing the Windows installer. The release adds `/api/auth/desktop/*`, `/desktop/connect` and `/api/sync/events`, with a five-minute TTL collection and no task/note schema migration. Node 24 is used by the container builds.
+
+Apply the updated Dayflow nginx configuration with buffering disabled for streaming. Follow the existing shared-server rules: validate nginx before graceful reload and do not alter the other project's configuration. Verify the live sign-in handoff and a two-client task/note update. This change assumes one backend process for notifications. Installer creation and manual desktop upgrades are documented in [Desktop guide](../docs/DESKTOP.md).
+
+### Standard web deployment
+
 ```bash
 # 1. On your PC: change code, then check it
 cd backend  && npm run typecheck && npm run lint && npm test

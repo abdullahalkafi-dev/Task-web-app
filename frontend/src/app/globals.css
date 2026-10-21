@@ -199,3 +199,14 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Native modes change presentation without replacing the mounted editors/providers. */
+[data-desktop-mode] > .desktop-frame { min-height: calc(100dvh - 53px); }
+@media (min-width: 768px) {
+  [data-desktop-mode] > .desktop-frame { height: calc(100dvh - 53px); }
+}
+[data-desktop-mode="compact"] .desktop-stats,
+[data-desktop-mode="compact"] .desktop-view-switch,
+[data-desktop-mode="compact"] .desktop-frame > nav,
+[data-desktop-mode="compact"] .desktop-frame > aside { display: none; }
+[data-desktop-mode="compact"] h1 { font-size: 1.3rem; }

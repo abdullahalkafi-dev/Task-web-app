@@ -5,8 +5,10 @@ import { authenticate } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import * as controller from "./auth.controller";
 import { googleLoginSchema } from "./auth.validation";
+import { desktopAuthRouter } from "./desktop.route";
 
 export const authRouter = Router();
+authRouter.use("/desktop", desktopAuthRouter);
 
 const loginLimiter = rateLimit({
   windowMs: 60_000,

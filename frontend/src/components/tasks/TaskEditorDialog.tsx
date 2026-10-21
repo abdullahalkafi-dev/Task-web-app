@@ -12,8 +12,10 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { PillTabs } from "../ui/PillTabs";
 import { useToast } from "../ui/Toast";
+import { registerLocalWriter } from "@/lib/local-save";
 
 interface Draft {
+  id?: string;
   title: string;
   html: string;
   hours: number;
@@ -51,13 +53,27 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
   const [saving, setSaving] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const dirty = useRef(false);
+  const base = useRef(task?.updatedAt ?? null);
+  const latestDraft = useRef<Draft>({ id: newId.current, title, html, hours, minutes, status, base: base.current });
+  latestDraft.current = { id: newId.current, title, html, hours, minutes, status, base: base.current };
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const write = async () => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+      if (dirty.current) await setMeta(db, draftKey, latestDraft.current);
+    };
+    const unregister = registerLocalWriter(write);
+    return () => { unregister(); void write(); };
+  }, [db, draftKey]);
 
   // Restore a local draft (nothing is lost if the dialog was closed by accident).
   useEffect(() => {
     let cancelled = false;
     void getMeta<Draft>(db, draftKey).then((d) => {
       if (cancelled || !d) return;
-      if (task && d.base !== task.updatedAt) return; // task changed since the draft was written
+      if (!task && d.id) newId.current = d.id;
+      if (task && d.base !== task.updatedAt) toast.show("Task changed elsewhere. Your saved draft is restored for review before saving.", "info");
       setTitle(d.title);
       setHtml(d.html);
       setHours(d.hours);
@@ -76,8 +92,9 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
   useEffect(() => {
     if (!dirty.current) return;
     const t = setTimeout(() => {
-      void setMeta(db, draftKey, { title, html, hours, minutes, status, base: task?.updatedAt ?? null } satisfies Draft);
+      void setMeta(db, draftKey, latestDraft.current);
     }, 1000);
+    draftTimer.current = t;
     return () => clearTimeout(t);
   }, [title, html, hours, minutes, status, db, draftKey, task]);
 
@@ -96,6 +113,8 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
     try {
       if (task) await updateTask(db, task.id, { title, descriptionHtml: html, estimatedMinutes, status });
       else await createTask(db, userId, { id: newId.current, title, descriptionHtml: html, estimatedMinutes, status });
+      dirty.current = false;
+      if (draftTimer.current) clearTimeout(draftTimer.current);
       await db.meta.delete(draftKey);
       onClose();
     } finally {

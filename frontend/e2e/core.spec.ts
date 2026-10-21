@@ -96,13 +96,13 @@ test("notes: create, edit, Dhaka timestamps, reorder persists, delete", async ({
   await page.getByLabel("Note title").fill("First note");
   await page.locator(".ProseMirror").click();
   await page.keyboard.type("Hello world");
-  await expect(page.getByTestId("save-indicator")).toHaveText("Saved", { timeout: 10_000 });
+  await expect(page.getByTestId("save-indicator")).toHaveText("Saved on this device", { timeout: 10_000 });
   await expect(page.getByTestId("note-meta")).toContainText(/Created \d{2} \w{3} \d{4}, \d{2}:\d{2} (AM|PM) · Last updated/);
   await page.getByRole("button", { name: "Back to Today" }).click();
 
   await page.getByRole("button", { name: "New note" }).click();
   await page.getByLabel("Note title").fill("Second note");
-  await expect(page.getByTestId("save-indicator")).toHaveText("Saved", { timeout: 10_000 });
+  await expect(page.getByTestId("save-indicator")).toHaveText("Saved on this device", { timeout: 10_000 });
   await page.getByRole("button", { name: "Back to Today" }).click();
   await expect(page.getByTestId("notes-count")).toHaveText("2");
   const rowTitles = () => page.getByTestId("note-row").locator("button.min-w-0 span.truncate:first-child").allTextContents();

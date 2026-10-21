@@ -4,6 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, ApiError, configureApi } from "@/lib/api";
 import { getAppDb, getMeta, setMeta } from "@/lib/db";
 import type { Session, User } from "@/lib/types";
+import { useDesktopLifecycle } from "./useDesktop";
+import { flushLocalWrites } from "@/lib/local-save";
 
 type Status = "loading" | "authed" | "anon";
 
@@ -22,6 +24,7 @@ interface AuthValue {
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  useDesktopLifecycle();
   const [status, setStatus] = useState<Status>("loading");
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -43,6 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(session.user);
     await setMeta(getAppDb(), "session", session);
   }, []);
+
+  useEffect(() => {
+    return window.dayflowDesktop?.onSession((session) => {
+      void flushLocalWrites().then(() => persist(session)).then(async () => {
+        setExpired(false); setStatus("authed");
+        await api.me(session.token).catch(() => undefined);
+      });
+    });
+  }, [persist]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    await flushLocalWrites();
     try {
       await api.logout();
     } catch {

@@ -58,6 +58,25 @@ Task JSON:
 ```
 
 ## Sync
+
+### GET /sync/events
+
+Authenticated SSE, consumed via fetch with Bearer auth. `event: change` / `data: {}` triggers ordinary push/pull and contains no documents. An initial event recovers missed changes. Heartbeat comments arrive every 20 seconds. Notifications are user-scoped. Disable proxy buffering; retain polling and reconnect backoff.
+
+## Desktop sign-in
+
+All following paths are under `/api/auth/desktop`; responses are `Cache-Control: no-store`. JWTs never enter URLs.
+
+| Method/path | Request | Result |
+| --- | --- | --- |
+| POST `/start` | `{ challenge }`, SHA-256 of a random 43-character base64url verifier | 201 `{ requestId, code, expiresAt }`, five-minute lifetime |
+| GET `/request/:requestId` | Authenticated browser session | `{ code, expiresAt }` for a pending request |
+| POST `/approve` | Bearer auth, `{ requestId, code }`, explicit confirmation | `{ ok: true }`, binds account once |
+| POST `/exchange` | `{ requestId, verifier }` | 202 `{ pending: true }` or 200 `{ token, user }`, atomic one-time consumption |
+
+Invalid input returns 400; protected routes require authentication; invalid/expired/used requests return 410. Independent rate limits apply. Queries check expiry independently of TTL cleanup. The usual `/auth/me` restores the desktop image cookie after session import.
+
+## Sync push and pull
 ### POST /sync/push
 Req: `{ "changes": [ { "entity": "task"|"note", "op": "upsert"|"delete", "doc": {…}, "clientUpdatedAt": "ISO" } ] }` (≤ 100).
 Each change's `doc` is the full document (a delete is a tombstone upsert: `op: "delete"` with `deletedAt` set). `clientUpdatedAt` is optional and defaults to `doc.updatedAt`.

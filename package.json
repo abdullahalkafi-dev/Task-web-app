@@ -1,0 +1,11 @@
+{
+  "name": "dayflow",
+  "private": true,
+  "scripts": {
+    "check": "npm --prefix backend run typecheck && npm --prefix backend run lint && npm --prefix backend test && npm --prefix frontend run typecheck && npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix desktop run check",
+    "desktop:dev": "npm --prefix desktop run dev",
+    "desktop:build": "npm --prefix desktop run build",
+    "desktop:dist": "npm --prefix desktop run dist",
+    "desktop:test": "npm --prefix desktop test"
+  }
+}

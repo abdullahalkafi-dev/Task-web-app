@@ -14,5 +14,11 @@ frontend/test-results
 !.env.example
 graphify-out
 *.log
+desktop/release/
+desktop/assets/icon.png
+desktop/assets/icon.ico
+desktop/test-results/
+desktop/playwright-report/
+.npm-cache/
 frontend/tsconfig.sw.tsbuildinfo
 letsencrypt
