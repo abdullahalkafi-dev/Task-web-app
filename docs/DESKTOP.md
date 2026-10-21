@@ -76,6 +76,8 @@ Keep application ID `com.dayflow.desktop`, product name `Dayflow`, and session p
 
 Hosted interface updates use normal website deployment and service-worker caching. Do not force reload while editing. New native features require a new installer. Bridge v1 evolves additively, with feature detection; the website always works without a bridge.
 
+Each frontend build gives cached HTML a fresh shell revision, preventing an old offline shell from referencing removed JavaScript chunks after deployment. Build tooling can optionally set `DAYFLOW_BUILD_REVISION` to an immutable release/commit identifier. Otherwise a new revision is generated. Existing open editors continue until normal navigation/restart; no forced reload is added.
+
 ## Native security and authentication
 
 Google authentication opens in the default browser. The main process generates a random verifier; the backend stores its SHA-256 challenge in a five-minute MongoDB request. Explicit browser approval binds an account to that request; only the initiating desktop process can exchange it, once. No JWT is put in a URL. The frontend imports the normal session and `/auth/me` restores its image cookie.

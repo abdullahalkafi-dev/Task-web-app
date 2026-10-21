@@ -1,16 +1,19 @@
 import withSerwistInit from "@serwist/next";
+import { randomUUID } from "node:crypto";
 
 const backend = process.env.BACKEND_URL ?? "http://localhost:4000";
+// A constant shell revision keeps old HTML after deployment while its hashed chunks change.
+const shellRevision = process.env.DAYFLOW_BUILD_REVISION ?? randomUUID();
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
   disable: process.env.NODE_ENV === "development",
   additionalPrecacheEntries: [
-    { url: "/", revision: "shell-v1" },
-    { url: "/history", revision: "shell-v1" },
-    { url: "/login", revision: "shell-v1" },
-    { url: "/desktop/connect", revision: "desktop-v1" },
+    { url: "/", revision: shellRevision },
+    { url: "/history", revision: shellRevision },
+    { url: "/login", revision: shellRevision },
+    { url: "/desktop/connect", revision: shellRevision },
   ],
 });
 

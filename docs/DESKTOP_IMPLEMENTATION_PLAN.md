@@ -20,6 +20,6 @@ The desktop support was pushed and deployed to the existing site with MongoDB/up
 
 Installer: `Dayflow-Setup-1.0.0-x64.exe`, 102,516,873 bytes. SHA-256: `6504344819b43a8040d399c772c75f77044158c0f14d0db5f5113388027ddde5`. Also delivered in `desktop/release/SHA256SUMS.txt`.
 
-A final frontend save-boundary follow-up keeps closing editors registered until pending writes finish and supports retry. Unit verification passed; final integration verification and the follow-up frontend rollout are tracked before handover.
+The final save-boundary follow-up passed all 15 browser and both Electron scenarios, including closing a task editor immediately before collapse, and was deployed with an additional backup at `/home/deploy/backups/task-web-app/desktop-20261021T160055Z`. Cached HTML now receives a fresh build revision; its production build and all three offline/image/restart regression scenarios passed.
 
 Manual checks not automated: real Google account approval, Windows login startup, multiple physical monitors/scaling, installer upgrade/uninstall and exclusive full-screen behavior. No signing certificate or automatic desktop update channel is configured.
