@@ -1,6 +1,6 @@
 # Android implementation and release verification
 
-Status: implementation and verification in progress. No APK is approved for distribution merely by this checklist existing.
+Status: signed release candidate built, automated checks completed below, and backend/web support deployed. Physical-phone and real Google acceptance remain pending before broader distribution.
 
 ## Agreed release
 
@@ -17,15 +17,17 @@ Private signed ARM64 APK; Android API 31–36; 40 MB download target. Full tasks
 | Real Electron E2E | 2 passed after shared editor changes |
 | Browser E2E | Final aggregate run passed all 15 scenarios, including offline restart/images and light/dark accessibility. A teardown-only duplicate Mongo cleanup produced a Windows file-lock warning after the passes; shutdown is now guarded against re-entry |
 | Frontend production build | Passed after eliminating duplicate TipTap/ProseMirror instances |
-| API and web Docker builds | Both built; web image must be rebuilt after the final shared-editor fix |
-| Android ARM64 release build | Initial signed production APK built: 33.78 MB, below 40 MB. Subsequent fixes require a new final artifact/hash |
-| APK inspection | Initial APK signature matches the registered SHA-1; ARM64 only; min 31/target 36; no debug receiver/source maps/broad storage or camera/audio permissions; all 24 native ELF libraries and APK archive pass 16 KB alignment |
+| API and web Docker builds | Final images built with type/lint gates and deployed from `7d43039`; public health/login/desktop routes and eight JavaScript assets passed |
+| Android ARM64 release build | Final signed APK: 33,824,401 bytes (33.82 MB), below 40 MB; source `7d43039`, clean tree at build time |
+| APK inspection | Final signature matches the protected release key; ARM64 only; min 31/target 36; no debug receiver/source maps/broad storage or camera/audio permissions; all 24 native ELF libraries and APK archive pass 16 KB alignment |
 | Kotlin repository/reminder tests | 13 passed: transactions, ack races, conflicts, stale reset, account isolation, concurrent writes, draft image retention, section order, delivery deduplication, snooze, completion and stale/wrong-account alarms |
 | Android 16 emulator | Full 14-scenario run passed on API 36 after the final image-copy changes: tasks, server updates, rich text, link share, history copy, overlay, widget, offline task/image restart, reminders, revoked overlay access, account isolation and sign-out |
 | Android 15 emulator | The same complete 14-scenario suite passed on API 35; fresh AOSP profiles use explicit ADB routing to Metro because RN does not recognize their `emu64x` fingerprint |
 | Android 14 emulator | A complete rerun passed all 14 scenarios after the storage review; its test profile was then discarded. The earlier interrupted attempt passed 12 scenarios |
 | Android 13 emulator | Full 15-scenario run passed after correcting the shell snapshot tool and fixing the real stale-Settings callback on sign-out. Includes widget, bubble, offline task/image restart, reminders, account isolation and a clean login screen after logout |
 | Android 12 emulator | Full 15-scenario run passed on API 31, including widget, bubble, offline task/images, reminders, account isolation and sign-out. The test parser supports its older `mFrame` window-diagnostic spelling |
+| Signed minified release | Separate signed x86 release started on API 36 without Metro. In-place reinstall preserved package UID and notification grant. This does not verify an authenticated database upgrade or real Google login |
+| Production reminder contract | Deployed validator preserves omission/null behavior, schema is Date, and legacy/UTC DTO checks pass without database writes. Unauthenticated sync/SSE/private-image requests return 401; Google audience unchanged |
 | Bundled editor browser-engine check | Passed formatting, edit/flush, canonical URLs, distinct identities for identical image bytes, and cache rendering that creates no document edits |
 | Native workflows observed | Full API 36 suite passed all 14 scenarios. A prior targeted run passed five image/reminder/account scenarios; earlier aggregate attempts exposed emulator/test-harness issues and are not counted as passes |
 | Real Google sign-in | Owner supplied Android OAuth client ID; its project-number prefix matches the public web client. Actual certificate/package registration and real sign-in remain unverified |
@@ -71,8 +73,8 @@ and is excluded from the production APK.
 
 ## Release gates
 
-- [ ] Signed ARM64 APK built, signature verified, size recorded and SHA-256 computed.
-- [ ] APK <= 40,000,000 bytes, or documented size review accepted before sharing.
+- [x] Signed ARM64 APK built, signature verified, size recorded and SHA-256 computed.
+- [x] APK <= 40,000,000 bytes, or documented size review accepted before sharing.
 - [x] Kotlin transactions/migrations/concurrency/account-isolation/recovery tests pass.
 - [x] Mobile startup, task/note editing, formatted content and images verified in emulator (API 36).
 - [ ] Web ↔ Android ↔ Windows sync, deletes and recovery verified with synthetic test accounts.
@@ -83,7 +85,40 @@ and is excluded from the production APK.
 - [ ] Google Android OAuth client configured; real sign-in and account switching confirmed.
 - [ ] Upgrade over the previous signed APK verified; uninstall behavior explained.
 - [ ] Battery saver/Doze, keyboard, rotation, accessibility/large text and Dhaka rollover checked.
-- [ ] Dayflow backend/web deployed with backups and public health/contract checks.
-- [ ] Installation instructions, artifact evidence, source revision and remaining limits audited.
+- [x] Dayflow backend/web deployed with backups and public health/contract checks.
+- [x] Installation instructions, artifact evidence, source revision and remaining limits audited.
 
 Do not change pending items to complete based on an unrelated successful check or general user feedback. Generated traces/screenshots are ignored local artifacts; archive selected evidence with the release if long-term retention is required. Keep tokens, signing passwords and personal content out of audit records.
+
+## Candidate artifact and retained evidence
+
+`mobile/release/Dayflow-1.0.0-arm64.apk`, version 1.0.0/code 1, SHA-256:
+`11018e9d42765e282c4f0111e8b644f9185bd3a24895b3c173ff43ff2f48d620`.
+The matching checksum, metadata, installation notes and selected emulator/JUnit
+reports are retained in the ignored release directory. The emulator APK is a
+separate 34,384,161-byte x86 artifact, not the phone download measurement.
+
+Actual ARM64 installed storage has not been measured on a phone. Downloaded image
+cache has a 100-MB budget; durable unsynced images and account data are separate.
+All dedicated test profiles were discarded after recording results. Unused
+task-installed API 31–35 system images were uninstalled; API 36 and the owner's
+personal API 37.2 image remain. Final generated-project/native-output/transform
+cleanup reclaimed 6.91 GiB and left approximately 50.5 GiB free. Source, keys,
+downloaded dependencies and release/test evidence remain; native outputs must
+regenerate for the next build.
+
+## Dependency maintenance follow-up
+
+The final Docker install reported existing dependency advisories. A production-only
+frontend audit returned 30 affected packages (29 moderate, one high); the high
+package is PostCSS. Its [CSS stringification](https://github.com/advisories/GHSA-qx2v-qp2m-jg93)
+and [source-map loading](https://github.com/advisories/GHSA-6g55-p6wh-862q) conditions
+require attacker-controlled CSS. The flagged frontend copy is used by the build
+pipeline; Dayflow does not offer a user CSS-processing endpoint.
+
+The [TipTap attribute-merging advisory](https://github.com/advisories/GHSA-cp6q-959q-f8rh)
+requires untrusted attribute objects. Dayflow supplies HTML through fixed editor
+schemas and does not import arbitrary document/plugin attribute objects. This
+limited call-site review identified no such paths; it does not clear the upstream
+advisories. Major Next/TipTap upgrades remain maintenance work requiring separate
+editor/offline compatibility verification. No automatic force-upgrade was applied.

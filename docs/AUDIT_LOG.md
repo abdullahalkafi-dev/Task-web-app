@@ -197,6 +197,73 @@ local Markdown links resolved. Final APK/deployment evidence is still pending an
 will be appended separately. Physical devices and real Google sign-in remain
 owner checks, as previously agreed.
 
+## 2026-10-22 — Signed Android candidate and production support rollout
+
+Application source was committed and pushed as
+[`7d43039`](https://github.com/abdullahalkafi-dev/Task-web-app/commit/7d43039b039a7ef60549f5935ae14c0eb045d91d).
+Both signed APKs were built from that revision with a clean working tree:
+
+| Artifact | Evidence |
+| --- | --- |
+| Phone APK | `Dayflow-1.0.0-arm64.apk`, version 1.0.0/code 1, 33,824,401 bytes (33.82 MB) |
+| Phone SHA-256 | `11018e9d42765e282c4f0111e8b644f9185bd3a24895b3c173ff43ff2f48d620` |
+| Emulator APK | `Dayflow-1.0.0-emulator-x86_64.apk`, 34,384,161 bytes |
+| Emulator SHA-256 | `bd70e036bf9594b33ad6edc1ec597f215c399b77c0263b6626be58fb5a75edc2` |
+| Inspection | Protected-key signature, correct application ID/minimum 31/target 36, single intended ABI, no debug receiver/source maps/broad storage or camera/audio permissions, ZIP and all 24 native libraries aligned for 16-KB pages |
+
+The APK outputs were hashed again after copying/cleanup and matched their metadata.
+Signed minified startup passed on the dedicated API 36 emulator without Metro.
+An in-place signed reinstall preserved the package UID and notification grant.
+That check does not establish authenticated-data upgrade behavior. Selected API
+31/33 fifteen-scenario and API 34/35/36 earlier fourteen-scenario reports, native
+JUnit results, release startup screenshot and production smoke evidence were
+retained under ignored `mobile/release/verification`. Installation instructions,
+release notes, checksum and metadata accompany the phone APK.
+
+Deployed only Dayflow's API and web containers from `7d43039`. The backup-first
+script saved MongoDB, uploads, Dayflow proxy configuration and previous revision
+`559c9f68b2fc286147e5f4b63920d09e86dee05d` under
+`/home/deploy/backups/task-web-app/android-20261022T165759Z`; all backup checksums
+were checked successfully. Both Docker images passed their type/lint/build gates.
+The rollout made no proxy changes and did not replace MongoDB or other projects'
+containers. One initial 502 during startup cleared on the next health attempt.
+
+Post-deployment checks passed: public health/login/desktop handoff returned 200;
+all eight referenced login JavaScript assets loaded; sync, SSE and private-image
+routes returned 401 without authentication; the public Google audience remained
+unchanged. A separate read-only check inside the deployed API verified reminder
+omission/null validation, Date schema and legacy/UTC DTO output without database
+writes. Real production Google sign-in and account synchronization remain phone
+acceptance checks.
+
+Storage cleanup retained source, release keys/APKs, downloaded dependencies and
+test evidence. After verifying no retained emulator referenced them, uninstalled
+only the task-installed API 31–35 system images. The owner's API 37.2 image and
+personal Pixel profile remain; API 36 is retained for future development. All
+completed Dayflow test profiles were discarded. With native builds stopped and
+resolved workspace paths/link checks completed, removed generated Android,
+five dependencies' CMake/build outputs and the project-local transform cache.
+This final cache cleanup reclaimed 6.91 GiB, leaving about 50.5 GiB free on C:.
+No temporary build drive alias remains. The next native build must regenerate
+these outputs.
+
+The Docker install also surfaced pre-existing dependency advisories. The
+production-only frontend audit reported 29 moderate and one high affected package;
+the high package is PostCSS. Upstream conditions and the limited call-site review
+are recorded in [Android verification](ANDROID_VERIFICATION.md#dependency-maintenance-follow-up).
+No relevant attacker-controlled CSS/arbitrary-attribute-object processing path
+was identified in that review; this is not a blanket security clearance. Major
+Next/TipTap dependency upgrades remain maintenance work, separate from this
+compatible companion release.
+
+The signed artifact is a candidate for owner testing, not a completed physical
+acceptance claim. Pending: real Google/package/certificate verification, both
+named phones' OS/hardware behavior, real three-way production sync, authenticated
+upgrade and actual ARM64 installed size, battery/Doze/rotation/large-text and
+remaining permission/lifecycle cases. API 32 UI coverage was deferred under the
+focused compatibility approach. No physical device was connected and none of
+those manual checks were marked complete.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

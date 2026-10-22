@@ -109,6 +109,12 @@ native build slower. Keep source, package lockfiles, release artifacts needed fo
 distribution and the protected `.signing` identity. Do not remove personal AVDs or
 pre-existing SDK versions as part of Dayflow cleanup.
 
+After the 22 October candidate was verified, all dedicated test profiles and the
+unused task-installed API 31–35 images were removed. API 36 is retained for normal
+development; install one specific older image only when a check requires it.
+Generated Android/native compilation and transform caches were also removed.
+The next native build will regenerate them; the signed APKs remain available.
+
 The repository's VS Code settings disable automatic Gradle discovery, Java
 Gradle import and automatic Java builds. Use the documented npm build commands
 for this mixed web/native workspace. This prevents editor extensions from
@@ -120,6 +126,9 @@ change global IDE preferences or stop already running editor processes.
 ## Signing and Google setup
 
 The local release script creates a persistent private key on first use under ignored `mobile/.signing`. Keep that key and its credentials in a protected backup: all future updates must use the same key. Never commit or send those files to friends. Friends receive only the APK and its checksum. Increment Android versionCode for each update.
+
+Update `mobile/package.json` version and `mobile/app.config.ts` version/versionCode
+together when packaging an update. The application ID and release key stay stable.
 
 Run `node mobile/scripts/signing-info.mjs` to produce public fingerprints. For the initially generated key:
 
