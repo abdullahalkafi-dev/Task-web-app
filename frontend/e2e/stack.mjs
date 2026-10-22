@@ -14,11 +14,13 @@ const { MongoMemoryServer } = require("mongodb-memory-server");
 
 const mongod = await MongoMemoryServer.create();
 const children = [];
+const apiPort = process.env.DAYFLOW_E2E_API_PORT ?? "4000";
+let shutdownStarted = false;
 
 const backendEnv = {
   ...process.env,
   NODE_ENV: "test",
-  PORT: "4000",
+  PORT: apiPort,
   MONGO_URI: mongod.getUri("dayflow"),
   JWT_SECRET: "e2e_secret_value_123",
   GOOGLE_CLIENT_ID: "e2e-client.apps.googleusercontent.com",
@@ -29,8 +31,16 @@ const backendEnv = {
 };
 
 children.push(spawn(process.execPath, ["--import", pathToFileURL(path.join(here, "stub-google.mjs")).href, "dist/server.js"], { cwd: backendDir, env: backendEnv, stdio: "inherit" }));
+// Next can serve /login before Mongo/API startup completes. Do not expose a ready
+// web server until its auth/config dependency is available.
+let apiReady = false;
+for (let attempt = 0; attempt < 120; attempt++) {
+  try { const response = await fetch(`http://127.0.0.1:${apiPort}/api/health`, { signal: AbortSignal.timeout(2000) }); if (response.ok) { apiReady = true; break; } } catch { /* starting */ }
+  await new Promise(resolve => setTimeout(resolve, 250));
+}
+if (!apiReady) { await shutdown(); throw new Error("E2E API did not become ready"); }
 const nextBin = path.join(frontendDir, "node_modules", "next", "dist", "bin", "next");
-children.push(
+if (!process.env.DAYFLOW_E2E_API_ONLY) children.push(
   spawn(process.execPath, [nextBin, "start", "-p", "3100"], {
     cwd: frontendDir,
     env: { ...process.env, TZ: "Asia/Dhaka" },
@@ -39,6 +49,8 @@ children.push(
 );
 
 async function shutdown() {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
   for (const c of children) c.kill();
   await mongod.stop();
   process.exit(0);

@@ -22,3 +22,31 @@ desktop/playwright-report/
 .npm-cache/
 frontend/tsconfig.sw.tsbuildinfo
 letsencrypt
+packages/*/node_modules/
+mobile/.signing/
+.tools/
+
+# Local agent/cloud settings and credentials
+/.aws/
+/.codex/
+/.agents/
+*.jks
+*.keystore
+*.p12
+*.p8
+*.pem
+*.key
+
+# Installers belong in release distribution, not source control
+*.apk
+*.aab
+*.apks
+*.exe
+*.msi
+
+# Test/compiler output and operating-system metadata
+coverage/
+*.lcov
+*.tsbuildinfo
+.DS_Store
+Thumbs.db

@@ -2,10 +2,19 @@
   "name": "dayflow",
   "private": true,
   "scripts": {
-    "check": "npm --prefix backend run typecheck && npm --prefix backend run lint && npm --prefix backend test && npm --prefix frontend run typecheck && npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix desktop run check",
+    "check": "npm --prefix backend run typecheck && npm --prefix backend run lint && npm --prefix backend test && npm --prefix frontend run typecheck && npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix desktop run check && npm --prefix mobile run check",
     "desktop:dev": "npm --prefix desktop run dev",
     "desktop:build": "npm --prefix desktop run build",
     "desktop:dist": "npm --prefix desktop run dist",
-    "desktop:test": "npm --prefix desktop test"
+    "desktop:test": "npm --prefix desktop test",
+    "mobile:dev": "npm --prefix mobile start",
+    "mobile:check": "npm --prefix mobile run check",
+    "mobile:dist": "npm --prefix mobile run dist",
+    "mobile:emulator": "npm --prefix mobile run build:emulator",
+    "mobile:release-emulator": "node mobile/scripts/android-build.mjs release-emulator",
+    "mobile:device": "node mobile/scripts/emulator.mjs",
+    "mobile:native-test": "node mobile/scripts/android-build.mjs native-test",
+    "mobile:e2e": "node mobile/e2e/android.mjs",
+    "mobile:editor-test": "npm --prefix mobile run editor:build && node mobile/e2e/editor.mjs"
   }
 }

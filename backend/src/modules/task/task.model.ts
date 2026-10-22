@@ -11,6 +11,7 @@ const taskSchema = new Schema<ITask>(
     descriptionHtml: { type: String, default: "" },
     descriptionText: { type: String, default: "" },
     estimatedMinutes: { type: Number, default: 0, min: 0, max: 1439 },
+    reminderAt: { type: Date, default: null },
     status: { type: String, enum: ["notStarted", "started", "completed"], default: "notStarted" },
     orderIndex: { type: Number, required: true },
     copiedFromDate: { type: String, default: null },

@@ -1,0 +1,10 @@
+const { getDefaultConfig } = require('expo/metro-config');
+const path = require('node:path');
+const fs = require('node:fs');
+const config = getDefaultConfig(__dirname);
+const shared = fs.realpathSync.native(path.resolve(__dirname, '../packages/shared'));
+config.watchFolders = [shared];
+config.resolver.extraNodeModules = { ...config.resolver.extraNodeModules, '@dayflow/shared': shared };
+config.resolver.nodeModulesPaths = [path.join(__dirname, 'node_modules')];
+config.resolver.sourceExts = [...new Set([...config.resolver.sourceExts, 'cjs'])];
+module.exports = config;

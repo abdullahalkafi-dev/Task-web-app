@@ -1,0 +1,20 @@
+{
+  "gradle.autoDetect": "off",
+  "java.import.gradle.enabled": false,
+  "java.autobuild.enabled": false,
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.tools/**",
+    "**/.gradle-user/**",
+    "**/build/**",
+    "**/mobile/android/**"
+  ],
+  "files.watcherExclude": {
+    "**/.tools/**": true,
+    "**/.gradle-user/**": true,
+    "**/android/.gradle/**": true,
+    "**/android/.cxx/**": true,
+    "**/android/build/**": true,
+    "**/android/app/build/**": true
+  }
+}

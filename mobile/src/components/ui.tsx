@@ -1,0 +1,11 @@
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextInputProps } from 'react-native';
+import type { PropsWithChildren } from 'react';
+import { usePalette } from '../lib/context';
+export function Screen({ children }: PropsWithChildren) { const c = usePalette(); return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }} style={{ flex: 1, backgroundColor: c.bg }}>{children}</ScrollView>; }
+export function Card({ children }: PropsWithChildren) { const c = usePalette(); return <View style={{ backgroundColor: c.card, borderRadius: 20, padding: 18, gap: 12 }}>{children}</View>; }
+export function Heading({ children }: PropsWithChildren) { const c = usePalette(); return <Text accessibilityRole="header" style={{ fontSize: 29, fontWeight: '700', color: c.text }}>{children}</Text>; }
+export function Body({ children, muted = false }: PropsWithChildren<{ muted?: boolean }>) { const c = usePalette(); return <Text style={{ color: muted ? c.muted : c.text, fontSize: 15, lineHeight: 23 }}>{children}</Text>; }
+export function Button({ title, onPress, disabled = false, subtle = false }: { title: string; onPress(): void; disabled?: boolean; subtle?: boolean }) { const c = usePalette(); return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} onPress={onPress} disabled={disabled} style={({ pressed }) => ({ minHeight: 48, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: subtle ? c.bg : '#263656', opacity: disabled ? .45 : pressed ? .7 : 1 })}><Text style={{ textAlign: 'center', color: subtle ? c.text : '#FFF', fontWeight: '600', fontSize: 15 }}>{title}</Text></Pressable>; }
+export function Input(props: TextInputProps) { const c = usePalette(); return <TextInput placeholderTextColor={c.muted} {...props} style={[{ minHeight: 48, borderWidth: 1, borderColor: c.line, borderRadius: 12, padding: 12, color: c.text, fontSize: 16 }, props.style]} />; }
+export function Loading() { return <View style={{ padding: 40 }}><ActivityIndicator accessibilityLabel="Loading Dayflow" /></View>; }
+export function Row({ children }: PropsWithChildren) { return <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>{children}</View>; }

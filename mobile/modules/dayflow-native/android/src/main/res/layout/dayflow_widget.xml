@@ -1,0 +1,6 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="16dp" android:orientation="vertical" android:background="#FFF8F9FB">
+  <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="40dp" android:text="Dayflow · Today" android:textColor="#111827" android:textSize="19sp" android:textStyle="bold" />
+  <TextView android:id="@+id/widget_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#4B5563" android:textSize="12sp" />
+  <LinearLayout android:id="@+id/widget_tasks" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+  <TextView android:id="@+id/widget_add" android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical" android:text="＋ Add task" android:textColor="#2456CB" />
+</LinearLayout>

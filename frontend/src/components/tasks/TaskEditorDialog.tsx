@@ -13,6 +13,7 @@ import { Dialog } from "../ui/Dialog";
 import { PillTabs } from "../ui/PillTabs";
 import { useToast } from "../ui/Toast";
 import { finishLocalWriter, registerLocalWriter } from "@/lib/local-save";
+import { fromReminderInput, toReminderInput } from "@dayflow/shared";
 
 interface Draft {
   id?: string;
@@ -21,6 +22,7 @@ interface Draft {
   hours: number;
   minutes: number;
   status: TaskStatus;
+  reminder?: string;
   base: string | null;
 }
 
@@ -49,13 +51,14 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
   const [hours, setHours] = useState(initial.hours);
   const [minutes, setMinutes] = useState(initial.minutes);
   const [status, setStatus] = useState<TaskStatus>(initial.status);
+  const [reminder, setReminder] = useState(toReminderInput(task?.reminderAt));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const dirty = useRef(false);
   const base = useRef(task?.updatedAt ?? null);
   const latestDraft = useRef<Draft>({ id: newId.current, title, html, hours, minutes, status, base: base.current });
-  latestDraft.current = { id: newId.current, title, html, hours, minutes, status, base: base.current };
+  latestDraft.current = { id: newId.current, title, html, hours, minutes, status, reminder, base: base.current };
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -79,6 +82,7 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
       setHours(d.hours);
       setMinutes(d.minutes);
       setStatus(d.status);
+      setReminder(d.reminder ?? toReminderInput(task?.reminderAt));
       setEditorKey((k) => k + 1);
       toast.show("Draft restored", "info");
     });
@@ -96,7 +100,7 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
     }, 1000);
     draftTimer.current = t;
     return () => clearTimeout(t);
-  }, [title, html, hours, minutes, status, db, draftKey, task]);
+  }, [title, html, hours, minutes, status, reminder, db, draftKey, task]);
 
   const touch = <T,>(setter: (v: T) => void) => (v: T) => {
     dirty.current = true;
@@ -111,12 +115,15 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
     setSaving(true);
     const estimatedMinutes = toMinutes(hours, minutes);
     try {
-      if (task) await updateTask(db, task.id, { title, descriptionHtml: html, estimatedMinutes, status });
-      else await createTask(db, userId, { id: newId.current, title, descriptionHtml: html, estimatedMinutes, status });
+      const reminderAt = fromReminderInput(reminder);
+      if (task) await updateTask(db, task.id, { title, descriptionHtml: html, estimatedMinutes, status, reminderAt });
+      else await createTask(db, userId, { id: newId.current, title, descriptionHtml: html, estimatedMinutes, status, reminderAt });
       dirty.current = false;
       if (draftTimer.current) clearTimeout(draftTimer.current);
       await db.meta.delete(draftKey);
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save. Your draft is retained.");
     } finally {
       setSaving(false);
     }
@@ -148,6 +155,12 @@ function EditorBody({ task, defaultStatus, onClose, onDelete }: BodyProps) {
           <p className="mb-1.5 text-[13px] font-medium text-ink-2">Description</p>
           <RichTextEditor boxed key={editorKey} value={html} onChange={touch(setHtml)} entity="task" entityId={newId.current} placeholder="Add details, links or images…" minHeight={150} />
         </div>
+
+        <label className="block text-[13px] font-medium text-ink-2">
+          Reminder (Dhaka time)
+          <input type="datetime-local" value={reminder} onChange={(e) => touch(setReminder)(e.target.value)} className="mt-1.5 block h-12 w-full rounded-input bg-surface-muted px-4 text-ink" />
+          <span className="mt-1 block text-xs text-ink-3">Delivered on Android after the app syncs. Clear the date to remove.</span>
+        </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <fieldset>

@@ -13,6 +13,32 @@ Deploy frontend/backend desktop support before sharing the Windows installer. Th
 
 Apply the updated Dayflow nginx configuration with buffering disabled for streaming. Follow the existing shared-server rules: validate nginx before graceful reload and do not alter the other project's configuration. Verify the live sign-in handoff and a two-client task/note update. This change assumes one backend process for notifications. Installer creation and manual desktop upgrades are documented in [Desktop guide](../docs/DESKTOP.md).
 
+### Android companion rollout
+
+Deploy the backward-compatible `reminderAt` support before distributing the Android
+APK. The Android release also changes Docker build contexts to the repository root
+so local shared packages are available. Read [Android verification](../docs/ANDROID_VERIFICATION.md)
+for the actual release evidence and pending device checks.
+
+After verified changes are pushed to `main`, run
+`bash /opt/projects/task-web-app/deploy/android-rollout.sh` on the server. For the
+first rollout, the server's previous checkout will not contain that script yet;
+copy the verified local script outside the checkout and run that copy so the
+backup records the actual previous revision before pulling:
+
+```powershell
+scp -P 2222 deploy/android-rollout.sh deploy@72.61.246.98:/tmp/dayflow-android-rollout.sh
+ssh -p 2222 deploy@72.61.246.98 bash /tmp/dayflow-android-rollout.sh
+```
+
+The script saves
+MongoDB, uploads, the previous revision and Dayflow's existing proxy configuration
+under the deploy user's private backup directory, writes backup checksums, builds
+both Dayflow images before replacement, and replaces only `dayflow-api` and
+`dayflow-web`. It makes no proxy configuration changes. Use the saved revision and
+the rollback procedure below if health or contract checks fail. Do not restore
+the database solely to roll back application code.
+
 ### Standard web deployment
 
 ```bash

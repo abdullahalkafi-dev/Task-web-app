@@ -21,7 +21,8 @@ services:
   # Unique name (see dayflow-web): the web container shares a network with another stack that also has a "backend".
   dayflow-api:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     depends_on:
       mongo:
@@ -50,7 +51,8 @@ services:
   # where a generic name like "frontend" would collide with that stack's services.
   dayflow-web:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         BACKEND_URL: http://dayflow-api:4000
     restart: unless-stopped

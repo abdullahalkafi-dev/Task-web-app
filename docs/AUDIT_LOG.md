@@ -81,6 +81,122 @@ At the owner's request for future maintenance and audit, added the documentation
 
 Validation: 23 local Markdown links resolved; whitespace/diff checks passed. This follow-up changes Markdown documentation only; runtime tests and application rebuild/deployment were not required. Its source reference is the Git commit containing this entry.
 
+## 2026-10-22 — Source-control hygiene during Android implementation
+
+At the owner's request, checked both ignore rules and all tracked/untracked files that Git would include. Added ignore rules for nested native-module build output, Gradle/CMake caches, local toolchains, generated editor assets, private signing material, local cloud/agent settings, test/compiler output and packaged installers. Removed unused Expo scaffold configuration and five unused placeholder images; `mobile/app.config.ts` is the maintained app configuration. Source files, package lockfiles and `.env.example` remain available to Git. Docker also excludes local credentials, toolchains, native applications and build outputs from the backend/web build context.
+
+Verification: `git check-ignore -v` confirmed representative Android/Windows installers, signing credentials, generated Android files, module build output, caches, test reports, local settings and environment files are excluded. No generated build output or credential files were already tracked. The initial scan covered 306 candidate files; after scaffold cleanup and the following source additions, a repeat scan covered 303 files with no private-key blocks, AWS access-key IDs, Google OAuth client secrets, GitHub token patterns or trailing whitespace found. This is a focused pattern scan, not a guarantee against every possible secret. `git diff --check` passed. Removed the task-created `J:` build alias after checking its target and confirming no owned Java process still used it; no project files were moved or duplicated. No files were pushed or deployed as part of this check; Android release verification remains in progress.
+
+## 2026-10-22 — Android development storage review
+
+The owner interrupted compatibility checks to ask about progress and low C: space.
+At that point the full 14-scenario Android 15 and 16 runs had passed; Android 14
+had passed 12 scenarios and was interrupted before completing its final two.
+Stopped the owned test loop, its Metro child, the dedicated Android 14 emulator
+and the throwaway local backend before measuring and cleaning generated files.
+
+The project measured approximately 27.4 GiB logically: test AVDs 11.1 GiB,
+mobile dependencies plus their native outputs 6.2 GiB, Gradle cache 5.3 GiB and
+generated Android files 2.1 GiB were the major Android contributors. SDK system
+images were another 28.2 GiB outside the project, including 8.2 GiB from the
+pre-existing API 37.2 image. Logical folder sizes can differ from allocated disk
+usage, particularly for virtual disks and shared files.
+
+Verified each cleanup target was a real path inside this repository and checked
+that no owned Java build was active. Removed the completed API 35/36 test profiles,
+generated native build/CMake caches in five dependencies, and `android/app/.cxx`.
+Measured free space increased from 12.97 to 23.89 GiB: 10.91 GiB reclaimed.
+Source, signing key, APKs, reports, remaining SDK images and the owner's personal
+Pixel emulator were retained. Added 20-GiB build and 15-GiB emulator preflight
+checks, one-active-Dayflow-emulator enforcement, and explicit bounded test-profile
+discard support. Script syntax checks passed. Native caches will need regeneration
+for later native builds; existing debug/release APKs are retained.
+
+## 2026-10-22 — Android implementation checkpoint (not a released APK)
+
+Implemented the Android companion in `mobile/`, sharing Dayflow's accounts,
+backend and document format. Added pure contracts/rules in `packages/shared` and
+an editor extension factory in `packages/editor`. Kotlin owns per-account SQLite,
+atomic outbox writes, private images, recoverable drafts, reminders, the widget,
+incoming shares and the optional overlay. React Native owns screens, secure
+sessions and foreground/overlay sync. The local WebView editor keeps credentials
+outside its bridge and preserves canonical server HTML.
+
+Added nullable `reminderAt` throughout the existing API and web editor. Omission
+by older clients preserves reminders, explicit null clears them and history
+copies start without the old reminder. Native notifications are Android-only.
+Docker build contexts now include the shared packages. The confined Android
+rollout script backs up Dayflow before pulling/building/replacing its two app
+services; it has not been run at this checkpoint.
+
+Verification evidence is maintained in [Android verification](ANDROID_VERIFICATION.md):
+39 backend, 32 frontend, 13 mobile TypeScript, 13 Kotlin and 3 desktop unit tests
+have passed, plus two real Electron scenarios. Full 14-scenario Android runs
+passed on APIs 34, 35 and 36. The browser offline regression passed three repeated
+runs after test readiness was corrected; its final aggregate run remains due.
+The initial signed ARM64 APK measured 33.78 MB and passed signature, manifest,
+ABI and 16-KB checks, but later fixes require a replacement artifact.
+
+Real defects fixed during verification included duplicate ProseMirror runtimes,
+incoming navigation intents, native return types, upload FormData compatibility,
+outbox acknowledgement races, native surface lock ordering and image ownership
+across recovered copies. Android 13 currently has a visible but untappable tab
+bar; its initial navigation check reproduces the window-size mismatch before
+editing. No full Android 13 pass or completed release is claimed.
+
+After resuming, isolated Android tests moved to API port 4400 to avoid an existing
+local port-4000 listener. Added project-only VS Code settings to prevent Java and
+Gradle extensions from automatically importing native dependency projects; several
+editor-started Gradle versions were observed alongside the owned build. Checked
+their daemon logs and stopped two imports whose latest working directory was
+exactly this Dayflow checkout, including their compiler children. The actual
+project-local JDK 17 build, other projects and global preferences were retained.
+This complements the storage limits and cleanup recorded above.
+
+Source changes are still uncommitted and no Android backend/web rollout has
+occurred at this checkpoint. Remaining gates include final compatibility,
+production artifacts/regressions, deployment, real Google sign-in and the owner's
+physical-device checks. The supplied Android OAuth ID and public certificate
+fingerprints are documented in [Android guide](ANDROID.md); private signing
+material stays ignored. Physical phones were deferred at the owner's request.
+
+## 2026-10-22 — Final Android regression and packaging preparation
+
+The complete browser regression run passed all 15 scenarios. Android 13 passed
+the expanded 15-scenario workflow after a test-tool correction and a real sign-out
+fix. Mobile type/lint checks and all 16 TypeScript tests passed; the three new
+session tests cover invalidating callbacks before draft flush completes, switching
+away/back, and restoring an account after secure-storage failure. Kotlin's 13
+tests remain passing. Android 12's visible bubble exposed the older `mFrame`
+diagnostic spelling, now supported by the harness; its complete rerun subsequently
+passed all 15 scenarios too. API 32 emulator coverage remains pending under the
+focused compatibility approach accepted after the owner's storage review.
+
+The earlier Android 13 navigation diagnosis was corrected: direct taps worked.
+Inspection of the emulator's own UIAutomator DEX showed `Display.getSize` supplied
+reduced dimensions to the XML dumper, clipping valid tab nodes. Removed the app
+window experiments and retained the normal edge-to-edge configuration. A roughly
+2-KB test-only shell JAR calls the same OS dumper with actual screenshot dimensions;
+it installs no app, uses real accessibility bounds and is excluded from releases.
+The harness now waits for asynchronous navigation/state and handles retained
+scroll positions. Temporary missing accessibility roots are retried without
+misreporting them as Dayflow crashes.
+
+The genuine logout race came from an old Settings read failing after native
+account deactivation. Session epochs now invalidate those reads from the start of
+the transition; stale success/error callbacks are discarded. Appearance reads
+also use the account guard, with account-specific state. Storage uses readable
+labels. Existing web/backend/desktop contracts are unchanged by these UI fixes.
+
+Added explicit incremental development prebuild support: the observed rebuild
+fell from about eight minutes after clean generation to 36–60 seconds while
+retaining task history. Incremental stamps force clean generation before releases,
+and release modes reject the incremental option. A focused scan covered 300 text
+source files with no selected credential patterns or trailing whitespace; all 36
+local Markdown links resolved. Final APK/deployment evidence is still pending and
+will be appended separately. Physical devices and real Google sign-in remain
+owner checks, as previously agreed.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

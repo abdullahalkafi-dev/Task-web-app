@@ -24,6 +24,23 @@ describe("tasks", () => {
     expect((await request(app).post(`/api/tasks/${randomUUID()}/copy-to-today`)).status).toBe(401);
   });
 
+  it("syncs reminders, preserves omitted fields from older clients, clears explicitly and resets copies", async () => {
+    const { token } = await createUserWithToken("reminder");
+    const reminderAt = new Date(Date.now() + 3600000).toISOString();
+    const doc = taskDoc({ reminderAt });
+    expect((await push(token, [doc])).body.results[0].winner.reminderAt).toBe(reminderAt);
+    const legacy: Record<string, unknown> = { ...doc, title: "Legacy edit", updatedAt: new Date(Date.parse(doc.updatedAt as string) + 10).toISOString() };
+    delete legacy.reminderAt;
+    expect((await push(token, [legacy])).body.results[0].winner.reminderAt).toBe(reminderAt);
+    const pull = await request(app).get("/api/sync/pull").set(bearer(token));
+    expect(pull.body.tasks[0].reminderAt).toBe(reminderAt);
+    const copy = await request(app).post(`/api/tasks/${doc.id as string}/copy-to-today`).set(bearer(token));
+    expect(copy.body.task.reminderAt).toBeNull();
+    const cleared = { ...legacy, reminderAt: null, updatedAt: new Date(Date.parse(legacy.updatedAt as string) + 10).toISOString() };
+    expect((await push(token, [cleared])).body.results[0].winner.reminderAt).toBeNull();
+    expect((await push(token, [taskDoc({ reminderAt: "not-a-date" })])).status).toBe(400);
+  });
+
   it("returns a day's tasks ordered by orderIndex, and calendar dates", async () => {
     const { token } = await createUserWithToken("sajib");
     const today = dhakaDateKey();

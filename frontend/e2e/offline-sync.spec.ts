@@ -45,6 +45,8 @@ test("changes survive closing the browser while offline", async ({ browser, requ
   const page = await context.newPage();
   await uiLogin(page, creds);
   await expect(page.getByTestId("sync-pill").first()).toHaveAttribute("data-state", "synced");
+  // Complete the first online shell installation before cutting the network.
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
 
   await context.setOffline(true);
   await addTask(page, "Written offline");
@@ -58,6 +60,8 @@ test("changes survive closing the browser while offline", async ({ browser, requ
   await context.setOffline(false);
   await expect(page.getByTestId("sync-pill").first()).toHaveAttribute("data-state", "synced", { timeout: 30_000 });
   const { token } = await apiLogin(request, creds);
-  const pull = await request.get("/api/sync/pull", { headers: { Authorization: `Bearer ${token}` } });
-  expect(((await pull.json()) as { tasks: { title: string }[] }).tasks.map((t) => t.title)).toContain("Written offline");
+  await expect.poll(async () => {
+    const pull = await request.get("/api/sync/pull", { headers: { Authorization: `Bearer ${token}` } });
+    return ((await pull.json()) as { tasks: { title: string }[] }).tasks.map((t) => t.title);
+  }, { timeout: 30_000 }).toContain("Written offline");
 });

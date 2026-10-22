@@ -1,4 +1,5 @@
-export type TaskStatus = "notStarted" | "started" | "completed";
+import type { TaskStatus } from "@dayflow/shared";
+export type { TaskStatus } from "@dayflow/shared";
 
 export interface ITask {
   _id: string;
@@ -8,6 +9,7 @@ export interface ITask {
   descriptionHtml: string;
   descriptionText: string;
   estimatedMinutes: number;
+  reminderAt?: Date | null;
   status: TaskStatus;
   orderIndex: number;
   copiedFromDate: string | null;
@@ -27,6 +29,7 @@ export interface ITaskDTO {
   descriptionHtml: string;
   descriptionText: string;
   estimatedMinutes: number;
+  reminderAt: string | null;
   status: TaskStatus;
   orderIndex: number;
   copiedFromDate: string | null;
@@ -43,6 +46,7 @@ export interface ITaskUpsert {
   descriptionHtml: string;
   descriptionText?: string;
   estimatedMinutes: number;
+  reminderAt?: string | null;
   status: TaskStatus;
   orderIndex: number;
   copiedFromDate: string | null;

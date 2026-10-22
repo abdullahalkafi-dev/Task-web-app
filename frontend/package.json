@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node .next/standalone/server.js",
+    "start": "node .next/standalone/frontend/server.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.sw.json --noEmit",
     "lint": "eslint src e2e",
     "test": "vitest run",
@@ -31,7 +31,9 @@
     "next": "^15.5.28",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "serwist": "^9.5.13"
+    "serwist": "^9.5.13",
+    "@dayflow/shared": "file:../packages/shared",
+    "@dayflow/editor": "file:../packages/editor"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

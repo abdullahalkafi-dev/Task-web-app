@@ -57,12 +57,24 @@ Copies title/description/estimate into a new Dhaka-today task with `status: notS
 Task JSON:
 ```json
 { "id": "uuid", "taskDate": "2026-10-20", "title": "Write report", "descriptionHtml": "<p>…</p>",
-  "descriptionText": "…", "estimatedMinutes": 90, "status": "notStarted", "orderIndex": 1024,
+  "descriptionText": "…", "estimatedMinutes": 90, "status": "notStarted", "orderIndex": 1024, "reminderAt": null,
   "copiedFromDate": null, "copiedFromTaskId": null,
   "createdAt": "ISO", "updatedAt": "ISO", "deletedAt": null }
 ```
 
 ## Sync
+
+`reminderAt` is a nullable UTC ISO timestamp. Older clients that omit it preserve
+the stored reminder; explicit `null` clears it. Legacy records return `null`.
+Copy-to-today starts without a reminder. Web, Windows and Android can edit the
+field; only Android schedules local notifications in this release. A website edit
+affects the phone's alarms after its next successful sync; there is no push service.
+
+Android Google sign-in uses the existing `/auth/google` contract and requests an
+ID token for the existing **web/server** OAuth client ID returned by `/auth/config`.
+The Android package/signing-certificate client must be registered in the same
+Google project. The Android client ID does not replace the backend's accepted
+audience. Native networking sends Bearer auth for both APIs and private images.
 
 ### GET /sync/events
 

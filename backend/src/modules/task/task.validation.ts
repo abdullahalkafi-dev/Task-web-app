@@ -8,6 +8,8 @@ export const taskUpsertSchema = z.object({
   descriptionHtml: z.string().max(2_000_000).default(""),
   descriptionText: z.string().max(2000).optional(),
   estimatedMinutes: z.number().int().min(0).max(1439),
+  // Omission from older clients must preserve the stored reminder.
+  reminderAt: z.iso.datetime().nullable().optional(),
   status: z.enum(["notStarted", "started", "completed"]),
   orderIndex: z.number().finite(),
   copiedFromDate: z.string().refine(isValidDateKey).nullable().default(null),

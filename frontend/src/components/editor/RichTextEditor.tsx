@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleMenu, EditorContent, useEditor, type Editor } from "@tiptap/react";
+import "@tiptap/starter-kit";
+import "@tiptap/extension-link";
+import "@tiptap/extension-underline";
 import { Bold, Code, Heading, ImagePlus, Italic, Link as LinkIcon, List, ListOrdered, Quote, Underline as UnderlineIcon, Unlink } from "lucide-react";
 import { useData } from "@/hooks/useData";
 import { api, ApiError } from "@/lib/api";

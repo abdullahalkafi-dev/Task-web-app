@@ -1,0 +1,12 @@
+import { execFileSync } from 'node:child_process';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const credentials=JSON.parse(await readFile(path.join(root,'.signing','credentials.json'),'utf8'));
+const local=path.join(root,'..','.tools','jdk17');const jdk=process.env.DAYFLOW_JAVA_HOME ?? (existsSync(local)?local:'C:\\Program Files\\Android\\Android Studio\\jbr');
+const output=execFileSync(path.join(jdk,'bin','keytool.exe'),['-list','-v','-keystore',path.join(root,'.signing','dayflow-release.jks'),'-alias','dayflow','-storepass:env','DAYFLOW_STORE_PASSWORD'],{env:{...process.env,DAYFLOW_STORE_PASSWORD:credentials.password},encoding:'utf8',stdio:['ignore','pipe','pipe']});
+const certificate={applicationId:'com.dayflow.mobile',sha1:/SHA1:\s*([A-F0-9:]+)/.exec(output)?.[1],sha256:/SHA256:\s*([A-F0-9:]+)/.exec(output)?.[1]};
+if(!certificate.sha1 || !certificate.sha256)throw new Error('Could not read signing certificate fingerprints');
+await mkdir(path.join(root,'release'),{recursive:true});await writeFile(path.join(root,'release','certificate.json'),JSON.stringify(certificate,null,2)+'\n');console.log(JSON.stringify(certificate,null,2));

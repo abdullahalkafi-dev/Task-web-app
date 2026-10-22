@@ -38,6 +38,27 @@ Only the frontend port (default 3000) is published. `/api/*` and `/uploads/*` ar
 
 ## 2. Layers
 
+### Android and shared packages
+
+`mobile/` owns the React Native/Expo Android client. `packages/shared` contains
+platform-independent contracts, Dhaka/reminder rules and merge/order helpers.
+`packages/editor` builds the compatible TipTap extension configuration using
+caller-supplied modules: each platform must have a single ProseMirror runtime.
+
+Android's Kotlin SQLite repository is the common source of truth for the native
+app, overlay, widget and notifications. A shared JavaScript sync coordinator runs
+while the app is foregrounded or the user-enabled overlay is visible. Native
+surfaces queue transactions when networking is inactive. The bundled system
+WebView editor receives content/formatting messages and native-fetched image data,
+never credentials. Canonical HTML stores server URLs or pending upload IDs, never
+device paths. Database accounts, image storage and secure sessions are isolated.
+
+Release APKs use a persistent private signing key, ARM64/Hermes, minimum API 31
+and target API 36. Native projects are generated from configuration/plugins;
+project-owned Kotlin remains under `mobile/modules`. Build and lifecycle details
+are in [Android guide](ANDROID.md); actual release evidence is tracked separately
+in [Android verification](ANDROID_VERIFICATION.md).
+
 ### Frontend (`frontend/src`)
 - `app/` — App Router: `(auth)/login`, `(app)/` shell (icon rail, notes sidebar, top bar), `(app)/page.tsx` Home, `(app)/history`, `sw.ts`.
 - `components/` — `ui/` primitives, `tasks/`, `notes/`, `editor/`, `layout/`.

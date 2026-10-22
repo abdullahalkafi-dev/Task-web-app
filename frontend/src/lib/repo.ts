@@ -29,6 +29,7 @@ export interface TaskInput {
   title: string;
   descriptionHtml: string;
   estimatedMinutes: number;
+  reminderAt?: string | null;
   status: TaskStatus;
 }
 
@@ -45,6 +46,7 @@ export async function createTask(db: DayflowDB, userId: string, input: TaskInput
       descriptionHtml: input.descriptionHtml,
       descriptionText: htmlToText(input.descriptionHtml),
       estimatedMinutes: input.estimatedMinutes,
+      reminderAt: input.reminderAt ?? null,
       status: input.status,
       orderIndex: orderAtEnd(siblings.map(toOrdered)),
       copiedFromDate: null,
@@ -64,7 +66,7 @@ export async function createTask(db: DayflowDB, userId: string, input: TaskInput
 export async function updateTask(
   db: DayflowDB,
   id: string,
-  patch: Partial<Pick<TaskDoc, "title" | "descriptionHtml" | "estimatedMinutes" | "status" | "orderIndex">>,
+  patch: Partial<Pick<TaskDoc, "title" | "descriptionHtml" | "estimatedMinutes" | "status" | "orderIndex" | "reminderAt">>,
 ): Promise<void> {
   await db.transaction("rw", db.tasks, db.outbox, async () => {
     const cur = await db.tasks.get(id);

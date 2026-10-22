@@ -31,6 +31,7 @@ Indexes: `{ googleId: 1 }` unique, `{ email: 1 }`. There are no passwords.
 | descriptionText | string | first 300 chars of plain text |
 | estimatedMinutes | number | 0–1439 |
 | status | `"notStarted" \| "started" \| "completed"` | |
+| reminderAt | Date \| null | One-time reminder; UTC storage, Dhaka input/display; default null |
 | orderIndex | number | fractional |
 | copiedFromDate | string \| null | |
 | copiedFromTaskId | string \| null | |
@@ -41,6 +42,10 @@ Indexes: `{ googleId: 1 }` unique, `{ email: 1 }`. There are no passwords.
 Indexes: `{ userId:1, taskDate:1, orderIndex:1 }`, `{ userId:1, updatedAt:1 }`, `{ userId:1, serverUpdatedAt:1 }`. Tasks, notes and uploads use no Mongoose `timestamps` option (the client owns `createdAt`/`updatedAt`).
 
 ## notes
+
+Reminder compatibility requires no destructive migration: existing missing values
+read as null; an omitted field in an older client's upsert preserves the stored
+value, while explicit null clears it. Copy-to-today does not copy a reminder.
 | Field | Type | Notes |
 |---|---|---|
 | _id | string (uuid) | |
@@ -69,3 +74,19 @@ pendingUploads: "localId, entity, entityId, createdAt"
 meta:           "key"   // lastPulledAt, lastSyncedAt, draft:task:<id|new>
 ```
 The session (JWT + cached user profile) lives in a separate app-level database `dayflow_app` → `meta` key `session`, because it must be readable before the user id is known. The outbox holds only `(entity, entityId, op)`; the document itself is read from `tasks`/`notes` at push time, so several edits of one document coalesce into one change.
+
+## Android SQLite — `dayflow_<userId>.sqlite`, version 1
+
+The project-owned Kotlin repository shares one transaction layer between React
+Native, widget, overlay and reminder actions. Each account has a separate database
+and private image directory. Tables: `docs(entity,id,json,seen)`,
+`outbox(seq,entity,id,stamp)`, `meta(key,value)`, `uploads(id,json)`,
+`delivered(key)`. Document writes and outbox insertion commit atomically; acks
+delete only sequence numbers included in the sent batch. Future versions require
+explicit non-destructive migrations; unsupported upgrades fail without dropping data.
+
+`meta` stores sync cursors, drafts, recoverable conflicts and appearance. Sessions
+remain in Android-backed SecureStore, outside SQLite/editor HTML. After 30 days
+without sync, a full snapshot is reconciled before pushing. Missing previously
+synced documents are removed locally, retaining pending edits as recovery copies;
+never-uploaded new documents remain queued. See [Android guide](ANDROID.md).
