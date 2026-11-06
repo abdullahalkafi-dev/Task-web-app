@@ -324,6 +324,38 @@ acceptance. Automated account flows use the existing throwaway Google stub.
 Native desktop interaction/compact mode and Android Teams are deferred. Automated
 checks do not establish physical-device behavior or a real-user usability study.
 
+## 2026-11-06 — Teams deployment evidence
+
+Application revision `d4d00bdad289ee846dbbfe4b8895e1127e09dd7e` was pushed to
+main and deployed with the backup-first rollout. Previous revision:
+`012a3504e8e229cdf54d0dd0dd512dd531eed27d`. Verified backup directory:
+`/home/deploy/backups/task-web-app/teams-20261106T131758Z`, containing MongoDB,
+uploads, Dayflow's previous proxy configuration, prior/deployed revision files
+and SHA256SUMS. All four pre-deployment backup checksums passed. No proxy changes
+or reloads were made. Only dayflow-api/dayflow-web were replaced; MongoDB retained
+its two-week uptime and health. Both production Docker builds passed their
+typecheck/lint/build gates. API startup logged only the normal listening message.
+
+Read-only `deploy/verify-teams.cjs` passed against the public site: health,
+login, Teams and desktop-connect returned 200; anonymous team listing,
+invitations, tasks, history, messages, team images and SSE returned 401. The
+deployed worker contains its separate team-image rule. Required membership,
+pending-invitation, task, message and read-position indexes were verified in
+MongoDB without account/content writes. Teams HTML returned 200 and all fourteen
+referenced JavaScript assets returned 200. The final local browser suite passed
+all 17 tests after the regression-test timing fix. Source typecheck/lint, 35
+frontend tests and the 15 dedicated backend team tests passed on the final code;
+the earlier root compatibility check also passed. No new native artifact was
+built. Real-account production Google/collaboration and native desktop acceptance
+remain manual checks as recorded above.
+
+The unchanged dependency locks still report npm audit advisories during builds
+(API production install: two high; full API install: ten moderate/three high;
+full frontend build install: forty moderate/five high). No dependency upgrade or
+`npm audit fix --force` was bundled into this feature release. These counts are
+installation output, not a claim that each advisory is reachable in Dayflow;
+the existing dependency-maintenance follow-up remains separate work.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

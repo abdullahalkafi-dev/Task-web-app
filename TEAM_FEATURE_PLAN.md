@@ -1,6 +1,6 @@
 # Dayflow Teams — Feature Plan (Web + Backend first)
 
-Status: **implemented for web/backend; release verification in progress.** See
+Status: **implemented, verified and deployed for web/backend.** See
 `docs/TEAMS.md` for the implemented rules and `docs/AUDIT_LOG.md` for actual release evidence.
 Desktop-specific acceptance and Android come after the web release.
 All decisions below were agreed in conversation. Anything marked **Open** still needs a decision.
