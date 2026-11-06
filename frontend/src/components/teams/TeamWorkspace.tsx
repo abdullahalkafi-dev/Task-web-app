@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   ChevronDown,
   History,
   LayoutGrid,
@@ -41,8 +40,23 @@ import { InfoBanner } from "../ui/InfoBanner";
 import { Menu } from "../ui/Menu";
 import { PillTabs } from "../ui/PillTabs";
 import { useToast } from "../ui/Toast";
+import { cn } from "../ui/cn";
 import { MembersDialog } from "./MembersDialog";
 import { TeamTaskEditor } from "./TeamTaskEditor";
+
+function DropdownChevron({ open }: { open: boolean }) {
+  return (
+    <ChevronDown
+      size={14}
+      strokeWidth={1.75}
+      aria-hidden
+      className={cn(
+        "shrink-0 text-ink-3 transition-transform duration-150",
+        open && "rotate-180",
+      )}
+    />
+  );
+}
 
 export function TeamWorkspace({
   historyPage = false,
@@ -149,9 +163,12 @@ export function TeamWorkspace({
     () => new Map(tasks.map((task) => [task.id, task])),
     [tasks],
   );
+  const selectedMember = team?.members.find(
+    (member) => member.id === memberFilter,
+  );
   const visible = filterTeamTasks(
     tasks,
-    filter === "mine" ? userId : memberFilter,
+    filter === "mine" ? userId : (selectedMember?.id ?? "all"),
   );
   const boardTasks = visible.map(asBoardTask);
   const seq = new Map(
@@ -264,109 +281,126 @@ export function TeamWorkspace({
 
   return (
     <div className="space-y-5 md:space-y-6">
-      <header className="flex flex-wrap items-center gap-3">
-        <Link
-          href={historyPage ? `/teams/${teamId}` : "/teams"}
-          aria-label={historyPage ? "Back to team board" : "Back to teams"}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface text-ink-2"
+      <div className="space-y-1">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex min-h-8 items-center text-[13px] font-medium text-ink-2"
         >
-          <ArrowLeft size={18} />
-        </Link>
-        <div className="min-w-0 flex-1 basis-40">
+          <Link
+            href={historyPage ? `/teams/${teamId}` : "/teams"}
+            aria-label={historyPage ? "Back to team board" : "Back to teams"}
+            className="inline-flex min-h-8 items-center rounded-md transition hover:text-ink"
+          >
+            {historyPage ? "Team board" : "Teams"}
+          </Link>
+        </nav>
+        <header className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1 basis-40">
+            <h1
+              aria-label={team.name}
+              className="min-w-0 text-2xl font-bold tracking-tight md:text-[28px]"
+              title={team.name}
+            >
+              {teams.length > 1 ? (
+                <Menu
+                  label="Switch team"
+                  selection
+                  align="left"
+                  items={teams.map((item) => ({
+                    id: item.id,
+                    label: item.name,
+                    active: item.id === teamId,
+                    onSelect: () => router.push(`/teams/${item.id}`),
+                  }))}
+                  trigger={({ ref, toggle, open }) => (
+                    <button
+                      type="button"
+                      ref={ref}
+                      onClick={toggle}
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      aria-label={`Switch team: ${team.name}`}
+                      className="-ml-2 inline-flex max-w-[calc(100%+8px)] items-center gap-2 rounded-input px-2 py-1 text-left transition hover:bg-surface-hover"
+                    >
+                      <span className="min-w-0 truncate">{team.name}</span>
+                      <DropdownChevron open={open} />
+                    </button>
+                  )}
+                />
+              ) : (
+                <span className="block truncate">{team.name}</span>
+              )}
+            </h1>
+            {historyPage && (
+              <p className="mt-0.5 text-sm text-ink-2">Team history</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMembers(true)}
+            className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-surface px-3 text-sm text-ink-2"
+            aria-label={`Members (${team.members.length})`}
+          >
+            <span className="hidden items-center -space-x-1 sm:flex">
+              {team.members.slice(0, 3).map((member) => (
+                <span
+                  key={member.id}
+                  role="img"
+                  aria-label={member.name}
+                  title={member.name}
+                >
+                  <Avatar name={member.name} size={26} />
+                </span>
+              ))}
+            </span>
+            <UsersRound size={17} className="sm:hidden" />
+            <span>
+              Members
+              {team.members.length > 3 ? ` +${team.members.length - 3}` : ""}
+            </span>
+          </button>
           <Menu
-            label="Switch team"
-            align="left"
-            items={teams.map((item) => ({
-              label: item.name,
-              active: item.id === teamId,
-              onSelect: () => router.push(`/teams/${item.id}`),
-            }))}
+            label="Team options"
+            items={[
+              {
+                label: historyPage ? "Board" : "History",
+                icon: <History size={16} />,
+                onSelect: () =>
+                  router.push(
+                    historyPage
+                      ? `/teams/${teamId}`
+                      : `/teams/${teamId}/history`,
+                  ),
+              },
+              {
+                label: team.creatorId === userId ? "Delete team" : "Leave team",
+                danger: true,
+                onSelect: () => {
+                  setAction(team.creatorId === userId ? "delete" : "leave");
+                  setActionError(null);
+                  setConfirmation("");
+                },
+              },
+            ]}
             trigger={({ ref, toggle, open }) => (
-              <button
-                type="button"
+              <IconButton
                 ref={ref}
-                onClick={toggle}
+                label="Team options"
                 aria-haspopup="menu"
                 aria-expanded={open}
-                className="flex max-w-full items-center gap-2 text-left"
+                onClick={toggle}
               >
-                <h1
-                  className="truncate text-2xl font-bold tracking-tight md:text-[28px]"
-                  title={team.name}
-                >
-                  {team.name}
-                </h1>
-                <ChevronDown size={16} className="shrink-0 text-ink-2" />
-              </button>
+                <MoreHorizontal size={20} />
+              </IconButton>
             )}
           />
-          {historyPage && (
-            <p className="mt-0.5 text-sm text-ink-2">Team history</p>
+          {!historyPage && (
+            <Button plus disabled={disabled} onClick={() => add()}>
+              Add task
+            </Button>
           )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowMembers(true)}
-          className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-surface px-3 text-sm text-ink-2"
-          aria-label={`Members (${team.members.length})`}
-        >
-          <span className="hidden items-center -space-x-1 sm:flex">
-            {team.members.slice(0, 3).map((member) => (
-              <span
-                key={member.id}
-                role="img"
-                aria-label={member.name}
-                title={member.name}
-              >
-                <Avatar name={member.name} size={26} />
-              </span>
-            ))}
-          </span>
-          <UsersRound size={17} className="sm:hidden" />
-          <span>
-            Members
-            {team.members.length > 3 ? ` +${team.members.length - 3}` : ""}
-          </span>
-        </button>
-        <Menu
-          label="Team options"
-          items={[
-            {
-              label: historyPage ? "Board" : "History",
-              icon: <History size={16} />,
-              onSelect: () =>
-                router.push(
-                  historyPage ? `/teams/${teamId}` : `/teams/${teamId}/history`,
-                ),
-            },
-            {
-              label: team.creatorId === userId ? "Delete team" : "Leave team",
-              danger: true,
-              onSelect: () => {
-                setAction(team.creatorId === userId ? "delete" : "leave");
-                setActionError(null);
-                setConfirmation("");
-              },
-            },
-          ]}
-          trigger={({ ref, toggle, open }) => (
-            <IconButton
-              ref={ref}
-              label="Team options"
-              aria-haspopup="menu"
-              aria-expanded={open}
-              onClick={toggle}
-            >
-              <MoreHorizontal size={20} />
-            </IconButton>
-          )}
-        />
-        {!historyPage && (
-          <Button plus disabled={disabled} onClick={() => add()}>
-            Add task
-          </Button>
-        )}
-      </header>
+        </header>
+      </div>
       {(!online || resource.error) && (
         <InfoBanner title="Reconnect to make changes to this team.">
           Your personal tasks continue to work offline.
@@ -377,6 +411,7 @@ export function TeamWorkspace({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <PillTabs
+                className="[&>button]:h-10"
                 label="Team task filter"
                 value={filter}
                 onChange={setFilter}
@@ -386,22 +421,74 @@ export function TeamWorkspace({
                 ]}
               />
               {filter === "all" && (
-                <select
-                  aria-label="Filter by member"
-                  value={memberFilter}
-                  onChange={(event) => setMemberFilter(event.target.value)}
-                  className="h-10 max-w-[180px] rounded-full border border-line bg-surface px-3 text-xs text-ink-2"
+                <div
+                  className={cn(
+                    "inline-flex h-10 max-w-[220px] items-center rounded-full border border-line bg-surface text-[13px] font-medium text-ink-2 transition hover:border-line-strong",
+                    selectedMember && "border-line-strong text-ink",
+                  )}
                 >
-                  <option value="all">All members</option>
-                  {team.members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
+                  <Menu
+                    label="Filter by assignee"
+                    align="left"
+                    selection
+                    items={[
+                      {
+                        id: "all",
+                        label: "All members",
+                        active: !selectedMember,
+                        onSelect: () => setMemberFilter("all"),
+                      },
+                      ...team.members.map((member) => ({
+                        id: member.id,
+                        label: member.name,
+                        icon: <Avatar name={member.name} size={24} />,
+                        active: member.id === memberFilter,
+                        onSelect: () => setMemberFilter(member.id),
+                      })),
+                    ]}
+                    trigger={({ ref, toggle, open }) => (
+                      <button
+                        ref={ref}
+                        type="button"
+                        onClick={toggle}
+                        aria-haspopup="menu"
+                        aria-expanded={open}
+                        aria-label={`Filter by assignee: ${selectedMember?.name ?? "All members"}`}
+                        className={cn(
+                          "flex h-full min-w-0 items-center gap-2 rounded-full px-3.5 text-left transition hover:bg-surface-hover",
+                          selectedMember && "pr-2",
+                        )}
+                      >
+                        <span className="min-w-0 truncate">
+                          {selectedMember?.name ?? "Assignee"}
+                        </span>
+                        <DropdownChevron open={open} />
+                      </button>
+                    )}
+                  />
+                  {selectedMember && (
+                    <button
+                      type="button"
+                      aria-label="Clear assignee filter"
+                      title="Clear assignee filter"
+                      onClick={(event) => {
+                        setMemberFilter("all");
+                        event.currentTarget.parentElement
+                          ?.querySelector<HTMLButtonElement>(
+                            '[aria-haspopup="menu"]',
+                          )
+                          ?.focus();
+                      }}
+                      className="mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-3 transition hover:bg-surface-muted hover:text-ink"
+                    >
+                      <X size={14} strokeWidth={1.75} />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <PillTabs
+              className="[&>button]:h-10"
               label="View"
               value={view ?? (wide ? "board" : "list")}
               onChange={setView}
@@ -456,11 +543,11 @@ export function TeamWorkspace({
               <p className="text-sm text-ink-2">
                 {filter === "mine"
                   ? "Nothing is assigned to you in this team."
-                  : memberFilter !== "all"
+                  : selectedMember
                     ? "No tasks are assigned to this member."
                     : "No tasks yet. Add the first one."}
               </p>
-              {filter === "all" && memberFilter === "all" && (
+              {filter === "all" && !selectedMember && (
                 <Button
                   plus
                   className="mt-5"

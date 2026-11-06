@@ -265,9 +265,14 @@ test("team layout: responsive, both themes, keyboard picker/menu, history, offli
     session.token,
     "A very long team name that should truncate neatly without pushing controls off the screen",
   );
+  let firstMember: { id: string; name: string } | undefined;
   for (let index = 0; index < 6; index++) {
     const member = await createUser(request, `A_long_member_name_${index}`);
     const memberSession = await apiLogin(request, member);
+    firstMember ??= {
+      id: memberSession.user.id,
+      name: member.email.split("@")[0],
+    };
     const invitation = await (
       await request.post(`/api/teams/${team.id}/invites`, {
         headers: auth(session.token),
@@ -290,6 +295,7 @@ test("team layout: responsive, both themes, keyboard picker/menu, history, offli
         "A long shared task title that should wrap without overflowing the board or list",
       ),
       descriptionHtml: `<p>${"Detailed context. ".repeat(100)}</p>`,
+      assigneeId: firstMember!.id,
     },
   });
   for (let index = 0; index < 11; index++)
@@ -310,14 +316,64 @@ test("team layout: responsive, both themes, keyboard picker/menu, history, offli
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(`/teams/${team.id}`);
       await expect(page.getByTestId("task-card").first()).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /^Switch team:/ }),
+      ).toHaveCount(0);
       await assertFits(page);
       await scan(page);
       await page.screenshot({
         path: testInfo.outputPath(`team-${theme}-${width}.png`),
         fullPage: true,
       });
+      const assigneeFilter = page.getByRole("button", {
+        name: "Filter by assignee: All members",
+        exact: true,
+      });
+      await assigneeFilter.click();
+      await expect(
+        page.getByRole("menuitemradio", { name: "All members", exact: true }),
+      ).toHaveAttribute("aria-checked", "true");
+      await assertFits(page);
+      await scan(page);
+      if (width === 360 || width === 1440)
+        await page.screenshot({
+          path: testInfo.outputPath(`assignee-menu-${theme}-${width}.png`),
+          fullPage: false,
+        });
+      await page.keyboard.press("Escape");
+      await expect(assigneeFilter).toBeFocused();
     }
   }
+  await page
+    .getByRole("button", {
+      name: "Filter by assignee: All members",
+      exact: true,
+    })
+    .focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitemradio", { name: "All members", exact: true }),
+  ).toBeFocused();
+  await page
+    .getByRole("menuitemradio", { name: firstMember!.name, exact: true })
+    .click();
+  await expect(page.getByTestId("task-card")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", {
+      name: `Filter by assignee: ${firstMember!.name}`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Clear assignee filter", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Filter by assignee: All members",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await expect(page.getByTestId("task-card")).toHaveCount(12);
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.getByRole("button", { name: "Add task", exact: true }).click();
   await page.getByRole("button", { name: /^Assigned to/ }).focus();
@@ -355,4 +411,22 @@ test("team layout: responsive, both themes, keyboard picker/menu, history, offli
     page.getByRole("button", { name: "Add task", exact: true }),
   ).toBeDisabled();
   await page.context().setOffline(false);
+  const secondTeam = await createTeam(request, session.token, "Another team");
+  await expect(
+    page.getByRole("button", { name: /^Switch team:/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /^Switch team:/ }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitemradio", { name: team.name, exact: true }),
+  ).toHaveAttribute("aria-checked", "true");
+  await page
+    .getByRole("menuitemradio", { name: "Another team", exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/teams/${secondTeam.id}$`));
+  await expect(
+    page.getByRole("heading", { name: "Another team", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Back to teams", exact: true }).click();
+  await expect(page).toHaveURL(/\/teams$/);
 });

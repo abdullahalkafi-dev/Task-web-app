@@ -41,6 +41,16 @@ timeline are collapsed by default. Chat accepts text/team images, pages of 50,
 and a per-user read position. Cards add only assignee, day estimate and message
 count/unread dot to the existing controls.
 
+## Team header and filters
+
+The team header uses a quiet Teams breadcrumb above the heading. The team-name
+switcher appears only when there is more than one team. Team switching and the
+Assignee filter share custom, theme-aware selection menus with a checkmark for
+the current choice. The assignee filter shows the selected member's name and a
+clear action; clearing returns keyboard focus to the filter. The filter and view
+buttons use matching 40-pixel heights. The task editor's searchable assignee
+picker remains available for assigning work.
+
 ## Online behavior and conflicts
 
 Teams use REST and account-scoped SSE invalidation, focus/reconnect refresh and

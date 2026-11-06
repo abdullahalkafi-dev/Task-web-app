@@ -356,6 +356,35 @@ full frontend build install: forty moderate/five high). No dependency upgrade or
 installation output, not a claim that each advisory is reachable in Dayflow;
 the existing dependency-maintenance follow-up remains separate work.
 
+## 2026-11-06 — Team header and dropdown polish
+
+Implemented the owner's approved visual refinements: replaced the large circular
+back arrow with a quiet Teams/Team board breadcrumb, kept single-team headings
+plain, and showed a team switcher only for multiple teams. Replaced the native
+member select with a theme-aware Assignee menu using the same chevron, panel and
+checked-row treatment as team switching. Selected assignees show their name and
+a clear action that restores focus. The filter/view buttons use matching 40px
+heights. Existing tokens, colors, fonts and task-card styling are retained.
+
+Menu selection is an optional extension to the shared Menu component; existing
+action menus keep their roles/behavior. Selected rows expose menuitemradio and
+aria-checked, long names truncate, and positioning uses untransformed width so
+the opening animation does not reduce the narrow-screen margin. Heading names
+remain the team name independently of the switch button's accessible action name.
+No backend API, data model, authorization, sync or native code changed.
+
+Verification: frontend typecheck, lint, 35 unit tests and production build passed.
+The final full Chromium suite passed all 17 tests, including the extended team
+layout check at 360/768/1024/1440/1920px in both themes, open-menu axe scans,
+assignee selection/reset, Escape/focus return, single/multiple-team switching and
+breadcrumb navigation. Open desktop/mobile menu captures were visually inspected.
+QA corrected a popup screenshot to capture the viewport instead of scrolling a
+full page (which legitimately dismissed the menu). A pre-existing offline-sync
+test assertion now waits for both persisted server tasks, preserving its exact
+content and second-device checks; production sync code is unchanged.
+
+Deployment evidence for this revision is appended after the backup-first rollout.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

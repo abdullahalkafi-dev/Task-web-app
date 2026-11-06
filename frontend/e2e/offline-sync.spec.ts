@@ -28,9 +28,11 @@ test("offline → online: changes made offline sync automatically and reach a se
 
   // the server has both tasks
   const { token } = await apiLogin(request, creds);
-  const pull = await request.get("/api/sync/pull", { headers: { Authorization: `Bearer ${token}` } });
-  const titles = ((await pull.json()) as { tasks: { title: string }[] }).tasks.map((t) => t.title).sort();
-  expect(titles).toEqual(["Offline task A", "Offline task B"]);
+  await expect.poll(async () => {
+    const pull = await request.get("/api/sync/pull", { headers: { Authorization: `Bearer ${token}` } });
+    expect(pull.ok()).toBeTruthy();
+    return ((await pull.json()) as { tasks: { title: string }[] }).tasks.map((t) => t.title).sort();
+  }, { timeout: 30_000 }).toEqual(["Offline task A", "Offline task B"]);
 
   // a second device (fresh browser profile) sees them after signing in
   const device2 = await (await browser.newContext()).newPage();
