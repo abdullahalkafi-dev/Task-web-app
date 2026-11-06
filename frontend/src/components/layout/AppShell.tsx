@@ -20,6 +20,8 @@ import { IconRail } from "./IconRail";
 import { TopBar } from "./TopBar";
 import { useDesktop } from "@/hooks/useDesktop";
 import { DesktopToolbar } from "../desktop/DesktopToolbar";
+import { TeamsProvider, useTeams } from "@/hooks/useTeams";
+import { useData } from "@/hooks/useData";
 
 interface ShellValue {
   /** Increments each time something outside Home (e.g. the mobile "+") asks for the task editor. */
@@ -36,9 +38,16 @@ export function useShell(): ShellValue {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { userId } = useData();
+  return <TeamsProvider userId={userId}><ShellContent>{children}</ShellContent></TeamsProvider>;
+}
+
+function ShellContent({ children }: { children: ReactNode }) {
   const desktop = useDesktop();
   const router = useRouter();
   const pathname = usePathname();
+  const inTeams = pathname.startsWith("/teams");
+  const { invites } = useTeams();
   const params = useSearchParams();
   const { user, logout, expired } = useAuth();
   const { unauthorized } = useSyncStatus();
@@ -54,9 +63,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAdmin = user?.role === "superadmin";
 
   const requestAddTask = useCallback(() => {
+    if (inTeams) { window.dispatchEvent(new Event("dayflow:team-add")); return; }
     if (pathname !== "/" || activeNote) router.push("/");
     setTick((t) => t + 1);
-  }, [pathname, activeNote, router]);
+  }, [pathname, activeNote, router, inTeams]);
 
   const selectNote = useCallback(
     (id: string) => {
@@ -72,23 +82,23 @@ export function AppShell({ children }: { children: ReactNode }) {
     [tick, requestAddTask],
   );
 
-  const mobileTab: MobileTab = meSheet || pathname.startsWith("/users") ? "me" : notesSheet ? "notes" : pathname.startsWith("/history") ? "history" : "today";
+  const mobileTab: MobileTab = meSheet || pathname.startsWith("/users") ? "me" : notesSheet ? "notes" : inTeams ? "teams" : pathname.startsWith("/history") ? "history" : "today";
 
   return (
     <ShellContext.Provider value={ctx}>
       <div className="min-h-dvh bg-shell" data-desktop-mode={desktop?.mode}>
         {desktop && <DesktopToolbar state={desktop} />}
         <div className="desktop-frame flex min-h-dvh gap-4 p-3 md:h-dvh md:min-h-0 md:overflow-hidden md:p-4 lg:gap-5">
-          <IconRail isAdmin={isAdmin} onHelp={() => setHelp(true)} onLogout={() => void logout()} />
+          <IconRail isAdmin={isAdmin} invitations={invites.length} onHelp={() => setHelp(true)} onLogout={() => void logout()} />
 
-          <aside className="hidden w-[260px] shrink-0 lg:block xl:w-[300px]" aria-label="Notes">
+          {!inTeams && <aside className="hidden w-[260px] shrink-0 lg:block xl:w-[300px]" aria-label="Notes">
             <NotesSidebar activeId={activeNote} onSelect={selectNote} showHeader />
-          </aside>
+          </aside>}
 
           <div className="flex min-w-0 flex-1 flex-col gap-4">
             {/* From lg up the sync pill / date / avatar live at the top of the notes sidebar instead. */}
-            <div className="max-md:sticky max-md:top-0 max-md:z-30 max-md:-mx-3 max-md:-mt-3 max-md:bg-shell max-md:px-3 max-md:pt-3 lg:hidden">
-              <TopBar onOpenNotes={() => setDrawer(true)} />
+            <div className={inTeams ? "max-md:sticky max-md:top-0 max-md:z-30" : "max-md:sticky max-md:top-0 max-md:z-30 max-md:-mx-3 max-md:-mt-3 max-md:bg-shell max-md:px-3 max-md:pt-3 lg:hidden"}>
+              <TopBar hideNotes={inTeams} onOpenNotes={() => setDrawer(true)} />
             </div>
 
             {(expired || unauthorized) && (
@@ -117,6 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <BottomTabBar
+        invitations={invites.length}
         active={mobileTab}
         onAdd={requestAddTask}
         onSelect={(t) => {
@@ -124,6 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           setMeSheet(false);
           if (t === "today") router.push("/");
           if (t === "history") router.push("/history");
+          if (t === "teams") router.push("/teams");
           if (t === "notes") setNotesSheet(true);
           if (t === "me") setMeSheet(true);
         }}

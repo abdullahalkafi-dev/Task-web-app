@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeFile, rm } from "node:fs/promises";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(here, "..");
@@ -13,6 +14,9 @@ const require = createRequire(path.join(backendDir, "package.json"));
 const { MongoMemoryServer } = require("mongodb-memory-server");
 
 const mongod = await MongoMemoryServer.create();
+// Test-only direct database access for time-based archive verification. Never used in production.
+const runtimeFile = path.join(frontendDir, ".next", "e2e-mongo.json");
+await writeFile(runtimeFile, JSON.stringify({ uri: mongod.getUri("dayflow") }));
 const children = [];
 const apiPort = process.env.DAYFLOW_E2E_API_PORT ?? "4000";
 let shutdownStarted = false;
@@ -53,6 +57,7 @@ async function shutdown() {
   shutdownStarted = true;
   for (const c of children) c.kill();
   await mongod.stop();
+  await rm(runtimeFile, { force: true });
   process.exit(0);
 }
 process.on("SIGINT", shutdown);

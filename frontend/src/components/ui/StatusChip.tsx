@@ -22,17 +22,19 @@ export function StatusChip({
   status,
   onChange,
   className,
+  labels = STATUS_LABEL,
 }: {
   status: TaskStatus;
   onChange?: (s: TaskStatus) => void;
   className?: string;
+  labels?: Record<TaskStatus, string>;
 }) {
   const base = cn("inline-flex h-7 items-center gap-1.5 rounded-chip px-2.5 text-xs font-medium", tone[status], className);
   if (!onChange) {
     return (
       <span className={base}>
         <StatusIcon status={status} />
-        {STATUS_LABEL[status]}
+        {labels[status]}
       </span>
     );
   }
@@ -41,7 +43,7 @@ export function StatusChip({
       label="Change status"
       align="left"
       items={STATUS_ORDER.map((s) => ({
-        label: STATUS_LABEL[s],
+        label: labels[s],
         icon: <StatusIcon status={s} size={16} />,
         active: s === status,
         onSelect: () => onChange(s),
@@ -56,11 +58,11 @@ export function StatusChip({
           }}
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={`Status: ${STATUS_LABEL[status]}. Change status`}
+          aria-label={`Status: ${labels[status]}. Change status`}
           className={cn(base, "min-h-[28px] cursor-pointer transition hover:brightness-95 active:scale-[0.97]")}
         >
           <StatusIcon status={status} />
-          {STATUS_LABEL[status]}
+          {labels[status]}
           <ChevronDown size={12} />
         </button>
       )}

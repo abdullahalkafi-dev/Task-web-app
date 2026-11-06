@@ -14,6 +14,10 @@ export function consumeFrames(buffer: string, onChange: () => void): string {
 export function watchChanges(userId: string, changed: () => void, unauthorized: () => void): () => void {
   const controller = new AbortController();
   const { signal } = controller;
+  const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(`dayflow-team-events:${userId}`) : null;
+  const refreshTeams = (): void => { window.dispatchEvent(new Event("dayflow:teams")); };
+  if (channel) channel.onmessage = refreshTeams;
+  const received = (): void => { changed(); refreshTeams(); channel?.postMessage("change"); };
   const wait = (ms: number): Promise<void> => new Promise((resolve) => {
     if (signal.aborted) { resolve(); return; }
     const done = () => { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); };
@@ -34,7 +38,7 @@ export function watchChanges(userId: string, changed: () => void, unauthorized: 
             if (part.done) break;
             buffer += decoder.decode(part.value, { stream: true }).replace(/\r/g, "");
             if (buffer.length > 64_000) throw new Error("Invalid event stream");
-            buffer = consumeFrames(buffer, changed);
+            buffer = consumeFrames(buffer, received);
             backoff = 1000;
           }
         } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
@@ -51,5 +55,5 @@ export function watchChanges(userId: string, changed: () => void, unauthorized: 
     else await run();
   };
   void start().catch(() => undefined);
-  return () => controller.abort();
+  return () => { controller.abort(); channel?.close(); };
 }

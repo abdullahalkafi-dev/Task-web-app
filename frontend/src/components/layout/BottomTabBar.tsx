@@ -1,9 +1,9 @@
 "use client";
 
-import { History, House, Plus, StickyNote, User } from "lucide-react";
+import { History, House, Network, Plus, StickyNote, User } from "lucide-react";
 import { cn } from "../ui/cn";
 
-export type MobileTab = "today" | "notes" | "history" | "me";
+export type MobileTab = "today" | "notes" | "history" | "me" | "teams";
 
 function Tab({ label, active, onClick, children }: { label: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -27,10 +27,12 @@ export function BottomTabBar({
   active,
   onSelect,
   onAdd,
+  invitations = 0,
 }: {
   active: MobileTab;
   onSelect: (t: MobileTab) => void;
   onAdd: () => void;
+  invitations?: number;
 }) {
   return (
     <nav aria-label="Primary" className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur md:hidden">
@@ -53,6 +55,9 @@ export function BottomTabBar({
         </div>
         <Tab label="History" active={active === "history"} onClick={() => onSelect("history")}>
           <History size={22} strokeWidth={1.75} />
+        </Tab>
+        <Tab label="Teams" active={active === "teams"} onClick={() => onSelect("teams")}>
+          <span className="relative"><Network size={22} strokeWidth={1.75} />{invitations > 0 && <span aria-label={`${invitations} pending invitations`} className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-0.5 text-[9px] text-primary-ink">{invitations > 9 ? "9+" : invitations}</span>}</span>
         </Tab>
         <Tab label="Me" active={active === "me"} onClick={() => onSelect("me")}>
           <User size={22} strokeWidth={1.75} />

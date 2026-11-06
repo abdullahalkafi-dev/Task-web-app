@@ -46,9 +46,11 @@ export interface RichTextEditorProps {
   minHeight?: number;
   /** Bordered box with the toolbar inside it (task editor), instead of the floating pill toolbar. */
   boxed?: boolean;
+  /** Online-only upload for team descriptions; never queues team data in the personal outbox. */
+  uploadImage?: (file: File) => Promise<{ url: string }>;
 }
 
-export function RichTextEditor({ value, onChange, entity, entityId, placeholder = "Write something…", autofocus, className, minHeight = 160, boxed }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, entity, entityId, placeholder = "Write something…", autofocus, className, minHeight = 160, boxed, uploadImage }: RichTextEditorProps) {
   const { db } = useData();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -72,6 +74,14 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
         toast.show("Images must be 10 MB or smaller", "error");
         return;
       }
+      if (uploadImage) {
+        try {
+          if (!navigator.onLine) throw new Error("Reconnect to upload images to this team.");
+          const res = await uploadImage(file);
+          if (!editor.isDestroyed) editor.chain().focus().insertContent({ type: "image", attrs: { src: res.url } }).run();
+        } catch (error) { toast.show(error instanceof Error ? error.message : "Image upload failed.", "error"); }
+        return;
+      }
       const putLocal = async (): Promise<void> => {
         const { localId, blobUrl } = await queueImage(db, entity, entityId, file);
         editor.chain().focus().insertContent({ type: "image", attrs: { src: blobUrl, "data-local-id": localId } }).run();
@@ -89,7 +99,7 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
         await putLocal();
       }
     },
-    [db, entity, entityId, toast],
+    [db, entity, entityId, toast, uploadImage],
   );
   const insertImageRef = useRef(insertImage);
   useEffect(() => {

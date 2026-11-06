@@ -264,6 +264,66 @@ remaining permission/lifecycle cases. API 32 UI coverage was deferred under the
 focused compatibility approach. No physical device was connected and none of
 those manual checks were marked complete.
 
+## 2026-11-06 — Teams web/backend implementation
+
+Implemented the owner-provided `TEAM_FEATURE_PLAN.md`: invitation-only teams for
+existing accounts, consent before membership, creator-only member removal/team
+deletion, shared tasks with immutable creator/one assignee, whole-day estimates,
+24-hour completion archive, removed-task restore, per-task text/image chat,
+unread markers, timeline, live refresh and version conflicts preserving drafts.
+Teams reuse the personal board/card/dialog system through optional props. The
+personal notes sidebar is omitted on team routes. No native release was built.
+
+Personal schemas, sync payloads, outbox, uploads and daily-reset behavior are
+unchanged. Team images require current membership, return no-store and bypass
+service-worker caching. Timeline events are embedded in each task and written
+atomically with the change, refining the planned separate event collection for
+the existing standalone MongoDB. In-process queues/live notifications retain the
+documented single-API-process assumption. There is no persistent team offline
+cache. See [Teams](TEAMS.md) for behavior, data/API docs and deferred work.
+
+Verification before deployment: root `npm run check` passed (54 backend tests,
+35 frontend tests, 3 desktop tests/build and 16 mobile tests/editor build, with
+typecheck/lint throughout). Both production packages built. The full Chromium
+suite passed 17 tests, covering existing personal offline sync/images,
+midnight rollover and history, plus two-account invitation, assignment, live
+chat, preserved conflict edits, lazy archive/restore and removed-member access.
+The team test captured both themes at 360/768/1024/1440/1920px with seven members,
+twelve tasks, long names and a rich description, checking overflow/axe and
+keyboard picker/menu behavior. Desktop/wide and narrow screenshots and the task
+dialog were visually inspected. Final small refinements made card chat controls
+open chat directly, clarified Remove wording and completion attribution, added
+full assignee accessible names and kept long menus/picker choices in view;
+final source typecheck/lint, both builds and all 17 browser tests passed again
+after those refinements. Generated captures/traces remain ignored under frontend/test-results.
+
+Environment-only interruptions were corrected without weakening checks: use
+`npm.cmd` under Windows PowerShell execution policy; dependency/font/browser
+downloads and the existing esbuild path resolution needed sandbox elevation.
+The initial E2E import.meta/CommonJS test-path mismatch and missing test estimate
+input were corrected. No production authentication bypass was introduced.
+
+A final browser rerun exposed an existing offline-image test race: the final API
+read sometimes preceded the image/task push even though the pill briefly said
+Synced. The trace established the same account in both requests and a later
+successful server push/pull containing the task. The regression test now polls
+the persisted server HTML (retaining the uploaded-image/no-blob assertions) and
+closes its manually created browser context. Personal sync production code was
+not changed to address this test timing issue.
+
+Production preflight confirmed a clean server checkout at
+`012a3504e8e229cdf54d0dd0dd512dd531eed27d`, healthy Dayflow API/Mongo and running
+web. The backup-first rollout records the previous revision and checksums before
+calling `deploy/update.sh`; that updater now builds both images before replacing
+only dayflow-api/dayflow-web and supports expected-revision verification. No
+nginx edit/reload or other project's container change is required. Actual
+deployment revision, backup path and post-deployment checks will be appended.
+
+Limits: real production Google sign-in and real-account collaboration need owner
+acceptance. Automated account flows use the existing throwaway Google stub.
+Native desktop interaction/compact mode and Android Teams are deferred. Automated
+checks do not establish physical-device behavior or a real-user usability study.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

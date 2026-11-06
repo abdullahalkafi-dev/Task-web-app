@@ -13,7 +13,7 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, next)
     return;
   }
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
+    res.status(err.statusCode).json({ error: { code: err.code, message: err.message }, ...(err.details ? { details: err.details } : {}) });
     return;
   }
   if (err instanceof ZodError) {

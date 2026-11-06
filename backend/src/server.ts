@@ -2,6 +2,7 @@ import { app } from "./app";
 import { connectDb } from "./config/db";
 import { config } from "./config/env";
 import { purgeOldTombstones } from "./modules/sync/sync.service";
+import { maintainTeams } from "./modules/team/team.service";
 
 async function main(): Promise<void> {
   await connectDb();
@@ -15,6 +16,9 @@ async function main(): Promise<void> {
   };
   purge();
   setInterval(purge, 24 * 60 * 60 * 1000).unref();
+  const maintain = (): void => { void maintainTeams().catch((error: unknown) => console.error("[teams] maintenance failed", error)); };
+  maintain();
+  setInterval(maintain, 60 * 60 * 1000).unref();
 
   app.listen(config.PORT, () => console.log(`[api] listening on :${config.PORT}`));
 }

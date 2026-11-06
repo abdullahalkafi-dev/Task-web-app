@@ -4,6 +4,21 @@ Offline-first, multi-user daily tasks + permanent notes. All dates/times are **A
 
 ## 1. System diagram
 
+### Teams extension
+
+`/teams`, `/teams/[teamId]` and `/teams/[teamId]/history` add online-only shared
+workspaces in the existing shell. TaskBoard/TaskCard accept an optional controller
+and team metadata; personal defaults continue using Dexie/outbox. Team routes omit
+the notes sidebar. Existing design tokens are unchanged.
+
+The backend `team` module owns teams, memberships, invitations, team tasks, chat,
+read positions and team images. None enter `/api/sync`. Each operation/image read
+checks active membership. Content-free user SSE hints refresh REST data and relay
+between browser tabs. Team images bypass service-worker caching and use no-store.
+The current single process serializes team writes; versions reject stale edits.
+Embedded timeline events append atomically with task writes on standalone MongoDB.
+See [Teams](TEAMS.md) for the rules, plan refinements and scaling boundary.
+
 ### Windows desktop companion
 
 The Electron desktop package loads the shared hosted frontend in a persistent partition. A separate local bubble opens the same workspace in compact or expanded presentation. Native state uses a versioned isolated preload bridge; task/note logic remains in the frontend's Dexie/outbox layer. Browser and desktop caches are independent.

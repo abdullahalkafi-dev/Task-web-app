@@ -6,7 +6,29 @@ MongoDB 7 via Mongoose. Domain models use `I<Entity>` interfaces and string UUID
 
 Ephemeral Mongoose collection: `_id` is a random 48-character hex request ID; `challenge` is a SHA-256 base64url verifier hash; `code` is a six-digit confirmation code; `userId` starts null and is set on explicit browser approval; `expiresAt` has a TTL index with `expireAfterSeconds: 0`. Queries enforce the five-minute expiry even before TTL cleanup. Atomic `findOneAndDelete` consumes an approved request once. No raw verifier or JWT is stored. Existing task/note schemas are unchanged.
 
-## users
+## Team collections (additive)
+
+Personal schemas and the sync protocol are unchanged. See [Teams](TEAMS.md).
+
+| Collection | Data / indexes |
+| --- | --- |
+| teams | UUID, name, creatorId, createdAt, updatedAt, deletedAt |
+| teammembers | teamId, userId, joinedAt, leftAt, removedBy; unique active `(teamId,userId)` partial index; `(userId,leftAt)` |
+| teaminvites | teamId, invitedUserId, invitedBy, pending/accepted/declined/cancelled status, createdAt, respondedAt; unique pending `(teamId,invitedUserId)` partial index; `(invitedUserId,status)` |
+| teamtasks | teamId, title, descriptionHtml/Text, todo/in_progress/completed status, orderIndex, immutable createdBy, nullable assigneeId/estimatedDays/startedAt/completedAt/completedBy/archivedAt/removedAt/removedBy, timestamps, integer version, embedded events; `(teamId,removedAt,archivedAt,orderIndex)`, `(completedAt,archivedAt)` |
+| teammessages | Client UUID for retry deduplication, teamId, taskId, authorId, bodyText, sanitized bodyHtml, createdAt, deletedAt; `(teamId,taskId,createdAt desc,_id desc)` |
+| teamtaskreads | teamId, taskId, userId, lastReadAt; unique `(taskId,userId)` |
+| teamuploads | teamId, filename, createdAt; teamId index; files under `uploads/teams/<teamId>/` |
+
+All IDs are string UUIDs. Embedded events contain id, nullable actorId, type,
+from/to and at, and append atomically with task mutations. Messages have strictly
+increasing server timestamps per task so read watermarks cannot miss messages
+created in the same millisecond. Team queues serialize membership/task writes in
+the current single API process. Deletion first tombstones the team (revoking
+access), then deletes only its records/files. Boot/hourly maintenance retries
+cleanup of tombstoned teams. No destructive migration is required.
+
+## users (personal account)
 | Field | Type | Notes |
 |---|---|---|
 | _id | string (uuid) | |

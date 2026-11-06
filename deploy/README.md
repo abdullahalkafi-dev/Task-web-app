@@ -5,6 +5,36 @@ Repo: https://github.com/abdullahalkafi-dev/Task-web-app (public, branch `main`)
 
 ## Everyday workflow
 
+### Teams web/backend release
+
+Teams adds separate collections and membership-checked image storage. Personal
+schemas and sync remain unchanged. After checks/build/browser verification, push
+the verified revision and use the backup-first rollout (the initial server will
+not yet have the new script):
+
+```powershell
+scp -P 2222 deploy/teams-rollout.sh deploy@72.61.246.98:/tmp/dayflow-teams-rollout.sh
+ssh -p 2222 deploy@72.61.246.98 bash /tmp/dayflow-teams-rollout.sh <verified-full-sha>
+```
+
+The script records the previous revision, MongoDB/uploads and the existing
+Dayflow proxy configuration in a private backup directory, verifies checksums,
+then calls `deploy/update.sh` with the expected SHA. The updater builds both
+images before replacing only dayflow-api/dayflow-web. MongoDB and shared nginx
+are left running. No proxy change/reload is required. Verify protected team APIs
+and images reject anonymous requests, inspect API health/logs and the deployed
+revision. See [Teams](../docs/TEAMS.md). Roll back application code without dropping
+the additive collections or restoring the database merely to revert code.
+
+Read-only post-release verification, run from the server checkout:
+
+```bash
+docker compose exec -T dayflow-api node < deploy/verify-teams.cjs
+```
+
+This checks public routes, anonymous denials, the service worker's team-image
+rule and required database indexes without creating accounts or tasks.
+
 ### Desktop companion rollout
 
 The [audit log](../docs/AUDIT_LOG.md) records the initial desktop rollout commits, backups and production checks. Start at the [documentation index](../docs/README.md) when planning later changes.

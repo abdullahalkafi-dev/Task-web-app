@@ -24,7 +24,7 @@ import { moveTask, updateTask } from "@/lib/repo";
 import { STATUS_LABEL, STATUS_ORDER, type TaskDoc, type TaskStatus } from "@/lib/types";
 import { cn } from "../ui/cn";
 import { ColumnHeader } from "../ui/ColumnHeader";
-import { QUICK_ACTION, TaskCard } from "./TaskCard";
+import { QUICK_ACTION, TaskCard, type TeamCardMeta } from "./TaskCard";
 
 // Accent bars follow the reference: orange / indigo / green.
 const ACCENT: Record<TaskStatus, string> = {
@@ -43,6 +43,14 @@ interface Props {
   onDelete: (t: TaskDoc) => void;
   /** The "+" in a column header: open the editor with that status pre-selected. */
   onAddInColumn: (status: TaskStatus) => void;
+  controller?: {
+    disabled: boolean;
+    labels: Record<TaskStatus, string>;
+    update: (task: TaskDoc, status: TaskStatus) => void;
+    move: (task: TaskDoc, siblings: TaskDoc[], index: number, status?: TaskStatus) => void;
+    meta: (task: TaskDoc) => TeamCardMeta;
+    openChat?: (task: TaskDoc) => void;
+  };
 }
 
 interface CardActions {
@@ -50,10 +58,11 @@ interface CardActions {
   onDelete: (t: TaskDoc) => void;
   onQuick: (t: TaskDoc) => void;
   onStatus: (t: TaskDoc, s: TaskStatus) => void;
+  controller?: Props["controller"];
 }
 
 const SortableCard = memo(function SortableCard({ task, seq, listView, actions }: { task: TaskDoc; seq: number; listView: boolean; actions: CardActions }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled: actions.controller?.disabled });
   const handleProps = useMemo(() => ({ ...attributes, ...listeners }), [attributes, listeners]);
   return (
     <TaskCard
@@ -68,6 +77,10 @@ const SortableCard = memo(function SortableCard({ task, seq, listView, actions }
       onStatusChange={listView ? actions.onStatus : undefined}
       handleRef={setActivatorNodeRef}
       handleProps={handleProps}
+      teamMeta={actions.controller?.meta(task)}
+      disabled={actions.controller?.disabled}
+      statusLabels={actions.controller?.labels}
+      onChat={actions.controller?.openChat}
     />
   );
 });
@@ -90,17 +103,18 @@ function Column({
   const { setNodeRef, isOver } = useDroppable({ id: `col:${status}` });
   return (
     <section
-      aria-label={STATUS_LABEL[status]}
+      aria-label={actions.controller?.labels[status] ?? STATUS_LABEL[status]}
       data-testid={`column-${status}`}
       className={cn("min-w-[82%] shrink-0 snap-start rounded-panel bg-surface-muted p-3 transition-colors sm:min-w-[320px] lg:min-w-0", isOver && "bg-surface-hover")}
     >
       <ColumnHeader
-        title={STATUS_LABEL[status]}
+        title={actions.controller?.labels[status] ?? STATUS_LABEL[status]}
         count={ids.length}
         accent={ACCENT[status]}
         right={
           <button
             type="button"
+            disabled={actions.controller?.disabled}
             aria-label={`Add task to ${STATUS_LABEL[status]}`}
             title={`Add to ${STATUS_LABEL[status]}`}
             onClick={() => onAdd(status)}
@@ -123,7 +137,7 @@ function Column({
   );
 }
 
-export function TaskBoard({ tasks, view, seqById, onOpen, onDelete, onAddInColumn }: Props) {
+export function TaskBoard({ tasks, view, seqById, onOpen, onDelete, onAddInColumn, controller }: Props) {
   const { db } = useData();
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
   const tasksRef = useRef(tasks);
@@ -134,10 +148,12 @@ export function TaskBoard({ tasks, view, seqById, onOpen, onDelete, onAddInColum
   // Stable callbacks so memoized cards do not re-render when something unrelated changes.
   const actions = useMemo<CardActions>(
     () => ({
+      controller,
       onOpen,
       onDelete,
       onQuick: (t) => {
         const next = QUICK_ACTION[t.status].next;
+        if (controller) { if (!controller.disabled) controller.update(t, next); return; }
         if (viewRef.current === "list") {
           void updateTask(db, t.id, { status: next });
           return;
@@ -145,9 +161,9 @@ export function TaskBoard({ tasks, view, seqById, onOpen, onDelete, onAddInColum
         // Board: the card lands at the end of its new column (and of the day's list).
         void updateTask(db, t.id, { status: next, orderIndex: orderAtEnd(tasksRef.current.filter((x) => x.id !== t.id)) });
       },
-      onStatus: (t, s) => void updateTask(db, t.id, { status: s }),
+      onStatus: (t, s) => { if (controller) { if (!controller.disabled) controller.update(t, s); } else void updateTask(db, t.id, { status: s }); },
     }),
-    [db, onOpen, onDelete],
+    [db, onOpen, onDelete, controller],
   );
   const baseCols = useMemo<Columns>(() => {
     const c: Columns = { notStarted: [], started: [], completed: [] };
@@ -208,7 +224,8 @@ export function TaskBoard({ tasks, view, seqById, onOpen, onDelete, onAddInColum
       const from = order.indexOf(id);
       const to = overKey.startsWith("col:") ? order.length - 1 : order.indexOf(overKey);
       if (from < 0 || to < 0 || from === to) return;
-      void moveTask(db, id, tasks, to);
+      if (controller) { const task = byId.get(id); if (task && !controller.disabled) controller.move(task, tasks, to); }
+      else void moveTask(db, id, tasks, to);
       return;
     }
 
@@ -230,11 +247,12 @@ export function TaskBoard({ tasks, view, seqById, onOpen, onDelete, onAddInColum
     const changedStatus = current && current.status !== status;
     const sameSpot = !changedStatus && baseCols[status].indexOf(id) === index;
     if (sameSpot) return;
-    void moveTask(db, id, siblings, index, changedStatus ? status : undefined);
+    if (controller) { if (current && !controller.disabled) controller.move(current, siblings, index, changedStatus ? status : undefined); }
+    else void moveTask(db, id, siblings, index, changedStatus ? status : undefined);
   }
 
   const active = activeId ? byId.get(activeId) : undefined;
-  const overlay = active ? <TaskCard task={active} seq={seqById.get(active.id) ?? 0} overlay /> : null;
+  const overlay = active ? <TaskCard task={active} seq={seqById.get(active.id) ?? 0} teamMeta={controller?.meta(active)} overlay /> : null;
 
   return (
     <DndContext

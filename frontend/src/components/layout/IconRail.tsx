@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleHelp, History, House, LogOut, Moon, Sun, Users } from "lucide-react";
+import { CircleHelp, History, House, LogOut, Moon, Network, Sun, Users } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { IconButton } from "../ui/Button";
 import { cn } from "../ui/cn";
@@ -19,7 +19,7 @@ function NavLink({ href, label, active, children }: { href: string; label: strin
       title={label}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "grid h-11 w-11 place-items-center rounded-full transition duration-150 ease-out active:scale-95",
+        "relative grid h-11 w-11 place-items-center rounded-full transition duration-150 ease-out active:scale-95",
         active ? "bg-primary text-primary-ink shadow-md2" : "text-ink-2 hover:bg-surface-muted hover:text-ink",
       )}
     >
@@ -33,10 +33,12 @@ export function IconRail({
   isAdmin,
   onHelp,
   onLogout,
+  invitations = 0,
 }: {
   isAdmin: boolean;
   onHelp: () => void;
   onLogout: () => void;
+  invitations?: number;
 }) {
   const pathname = usePathname();
   const { theme, set } = useTheme();
@@ -57,6 +59,10 @@ export function IconRail({
         </NavLink>
         <NavLink href="/history" label="History" active={pathname.startsWith("/history")}>
           <History size={20} strokeWidth={1.75} />
+        </NavLink>
+        <NavLink href="/teams" label={invitations ? `Teams, ${invitations} pending invitations` : "Teams"} active={pathname.startsWith("/teams")}>
+          <Network size={20} strokeWidth={1.75} />
+          {invitations > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full border border-line bg-surface px-1 text-[10px] font-semibold text-ink">{invitations > 99 ? "99+" : invitations}</span>}
         </NavLink>
         {isAdmin && (
           <NavLink href="/users" label="User management" active={pathname.startsWith("/users")}>

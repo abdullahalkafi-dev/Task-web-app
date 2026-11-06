@@ -6,7 +6,12 @@ set -euo pipefail
 
 cd /opt/projects/task-web-app
 git pull --ff-only
-docker compose up -d --build --remove-orphans
+if [ -n "${DAYFLOW_EXPECTED_REVISION:-}" ]; then
+  test "$(git rev-parse HEAD)" = "$DAYFLOW_EXPECTED_REVISION" || { echo 'Unexpected server revision; stopping before build.' >&2; exit 1; }
+fi
+# Build both images before replacing either service. Keep MongoDB and other projects running.
+docker compose build dayflow-api dayflow-web
+docker compose up -d --no-build --no-deps dayflow-api dayflow-web
 docker compose ps
 
 echo "Waiting for the site..."

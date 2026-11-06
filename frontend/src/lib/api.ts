@@ -5,6 +5,7 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -21,9 +22,10 @@ export function configureApi(opts: { getToken: () => string | null; onUnauthoriz
 
 interface ErrorBody {
   error?: { code?: string; message?: string };
+  details?: unknown;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, tokenOverride?: string): Promise<T> {
+export async function request<T>(method: string, path: string, body?: unknown, tokenOverride?: string): Promise<T> {
   const headers: Record<string, string> = {};
   const token = tokenOverride ?? tokenGetter();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -48,7 +50,7 @@ async function request<T>(method: string, path: string, body?: unknown, tokenOve
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(res.status, parsed.error?.code ?? "ERROR", parsed.error?.message ?? res.statusText);
+    throw new ApiError(res.status, parsed.error?.code ?? "ERROR", parsed.error?.message ?? res.statusText, parsed.details);
   }
   return (await res.json()) as T;
 }

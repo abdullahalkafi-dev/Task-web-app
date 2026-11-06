@@ -1,13 +1,16 @@
 "use client";
 
 import { forwardRef, memo, type HTMLAttributes, type Ref } from "react";
-import { Check, Clock, Copy, GripVertical, Pencil, Play, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Clock, Copy, GripVertical, MessageCircle, Pencil, Play, RotateCcw, Trash2 } from "lucide-react";
 import { formatDhaka, formatMinutes } from "@/lib/time";
 import type { TaskDoc, TaskStatus } from "@/lib/types";
 import { RichContent } from "../editor/RichContent";
 import { cn } from "../ui/cn";
 import { GradientPill } from "../ui/GradientPill";
 import { StatusChip } from "../ui/StatusChip";
+import { Avatar } from "../ui/Avatar";
+
+export interface TeamCardMeta { assignee: string | null; estimatedDays: number | null; overdue: boolean; messageCount: number; unread: boolean }
 
 /** One-tap status transition shown on every card: Start → Complete → Reopen. */
 export const QUICK_ACTION: Record<TaskStatus, { label: string; next: TaskStatus; className: string }> = {
@@ -39,13 +42,17 @@ export interface TaskCardProps {
   handleRef?: Ref<HTMLButtonElement>;
   dragging?: boolean;
   overlay?: boolean;
+  teamMeta?: TeamCardMeta;
+  disabled?: boolean;
+  statusLabels?: Record<TaskStatus, string>;
+  onChat?: (task: TaskDoc) => void;
 }
 
 const iconBtn =
   "grid h-9 w-9 place-items-center rounded-full text-ink-3 transition hover:bg-surface-muted hover:text-ink [@media(hover:none)]:h-11 [@media(hover:none)]:w-11";
 
 function TaskCardImpl(
-  { task, seq, onEdit, onDelete, onQuickAction, onStatusChange, handleProps, handleRef, dragging, overlay, className, ...rest }: TaskCardProps & Omit<HTMLAttributes<HTMLDivElement>, keyof TaskCardProps>,
+  { task, seq, onEdit, onDelete, onQuickAction, onStatusChange, handleProps, handleRef, dragging, overlay, className, teamMeta, disabled, statusLabels, onChat, ...rest }: TaskCardProps & Omit<HTMLAttributes<HTMLDivElement>, keyof TaskCardProps>,
   ref: Ref<HTMLDivElement>,
 ) {
   const done = task.status === "completed";
@@ -88,7 +95,7 @@ function TaskCardImpl(
               </button>
             )}
             {onDelete && (
-              <button type="button" aria-label={`Delete ${task.title}`} title="Delete" onClick={() => onDelete(task)} className={cn(iconBtn, "hover:text-red-600")}>
+              <button type="button" disabled={disabled} aria-label={`${teamMeta ? "Remove" : "Delete"} ${task.title}`} title={teamMeta ? "Remove" : "Delete"} onClick={() => onDelete(task)} className={cn(iconBtn, "hover:text-red-600")}>
                 <Trash2 size={15} strokeWidth={1.75} />
               </button>
             )}
@@ -99,7 +106,7 @@ function TaskCardImpl(
       <button type="button" onClick={onEdit ? () => onEdit(task) : undefined} disabled={!onEdit} className="mt-1 block w-full text-left disabled:cursor-default">
         <h4 className={cn("line-clamp-2 text-[15px] font-semibold leading-snug text-ink", done && "text-ink-2 line-through decoration-ink-3")}>{task.title}</h4>
       </button>
-      {hasBody && (
+      {hasBody && !teamMeta && (
         // Same formatted content as the editor (lists, headings, bold, links, images).
         <div
           className={cn("mt-1.5", onEdit && "cursor-pointer")}
@@ -112,20 +119,21 @@ function TaskCardImpl(
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-        <GradientPill className={cn(task.estimatedMinutes === 0 && "text-ink-3")}>
+        <GradientPill className={cn((teamMeta ? !teamMeta.estimatedDays : task.estimatedMinutes === 0) && "text-ink-3", teamMeta?.overdue && "text-red-700 dark:text-red-300")}>
           <Clock size={13} strokeWidth={1.75} />
-          {task.estimatedMinutes === 0 ? "No estimate" : <strong className="font-semibold text-ink">{formatMinutes(task.estimatedMinutes)}</strong>}
+          {teamMeta ? <span>{teamMeta.estimatedDays ? `${teamMeta.estimatedDays}d${teamMeta.overdue ? " · overdue" : ""}` : "No estimate"}</span> : task.estimatedMinutes === 0 ? "No estimate" : <strong className="font-semibold text-ink">{formatMinutes(task.estimatedMinutes)}</strong>}
         </GradientPill>
         {!overlay && (
           <span className="ml-auto flex items-center gap-2">
-            {onStatusChange && <StatusChip status={task.status} onChange={(s) => onStatusChange(task, s)} />}
+            {onStatusChange && !disabled && <StatusChip status={task.status} labels={statusLabels} onChange={(s) => onStatusChange(task, s)} />}
             {onQuickAction && (
               <button
                 type="button"
+                disabled={disabled}
                 aria-label={`${quick.label}: ${task.title}`}
                 onClick={() => onQuickAction(task)}
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition active:scale-95 [@media(hover:none)]:h-11",
+                  "inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition active:scale-95 disabled:opacity-50 [@media(hover:none)]:h-11",
                   quick.className,
                 )}
               >
@@ -136,6 +144,14 @@ function TaskCardImpl(
           </span>
         )}
       </div>
+      {teamMeta && <div className="mt-3 flex min-w-0 items-center justify-between gap-2 text-xs text-ink-2">
+        <button type="button" onClick={() => (onChat ?? onEdit)?.(task)} aria-label={`Open chat for ${task.title}: ${teamMeta.messageCount} messages${teamMeta.unread ? ", unread" : ""}`} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-1 hover:text-ink">
+          <MessageCircle size={14} />{teamMeta.messageCount}{teamMeta.unread && <span className="h-1.5 w-1.5 rounded-full bg-accent-blue" aria-hidden />}
+        </button>
+        <span className="flex min-w-0 items-center gap-1.5" role="img" aria-label={teamMeta.assignee ? `Assigned to ${teamMeta.assignee}` : "Unassigned"} title={teamMeta.assignee ?? "Unassigned"}>
+          {teamMeta.assignee && <Avatar name={teamMeta.assignee} size={24} />}<span className="truncate">{teamMeta.assignee?.split(" ")[0] ?? "Unassigned"}</span>
+        </span>
+      </div>}
     </div>
   );
 }

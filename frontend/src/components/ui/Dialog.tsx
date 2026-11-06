@@ -46,6 +46,8 @@ export function Dialog({
     const first = node?.querySelector<HTMLElement>("[data-autofocus]") ?? node?.querySelector<HTMLElement>(FOCUSABLE);
     first?.focus();
     const onKey = (e: KeyboardEvent): void => {
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== node) return;
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();

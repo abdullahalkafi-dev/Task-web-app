@@ -28,3 +28,4 @@ export function displayName(user: Pick<User, "email" | "name"> | null | undefine
 export function toReminderInput(iso: string | null | undefined): string;
 export function fromReminderInput(value: string): string | null;
 export function staleSync(lastPull: string | null, now?: number): boolean;
+export type * from "./teams";

@@ -32,13 +32,24 @@ export function Menu({
   const place = useCallback(() => {
     const r = btnRef.current?.getBoundingClientRect();
     if (!r) return;
-    const top = Math.min(r.bottom + 6, window.innerHeight - items.length * 44 - 16);
-    setPos(align === "right" ? { top, right: Math.max(8, window.innerWidth - r.right) } : { top, left: Math.max(8, r.left) });
+    const height = Math.min(items.length * 44 + 12, window.innerHeight * 0.7);
+    const top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - height - 8));
+    setPos(align === "right" ? { top, right: Math.max(8, window.innerWidth - r.right) } : { top, left: Math.max(8, Math.min(r.left, window.innerWidth - 184)) });
   }, [align, items.length]);
 
   useLayoutEffect(() => {
-    if (open) place();
+    if (open) { place(); popRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus(); }
   }, [open, place]);
+
+  useEffect(() => {
+    const button = btnRef.current;
+    if (!button) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); }
+    };
+    button.addEventListener("keydown", onKey);
+    return () => button.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -49,10 +60,10 @@ export function Menu({
       close();
     };
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); close(); btnRef.current?.focus(); }
     };
     document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     // Follow the trigger when something scrolls; close only if it scrolled out of view.
     const reposition = (): void => {
       const r = btnRef.current?.getBoundingClientRect();
@@ -63,7 +74,7 @@ export function Menu({
     window.addEventListener("scroll", reposition, true);
     return () => {
       document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
@@ -78,8 +89,17 @@ export function Menu({
             ref={popRef}
             role="menu"
             aria-label={label}
+            onKeyDown={(event) => {
+              const options = Array.from(popRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+              const index = options.indexOf(document.activeElement as HTMLElement);
+              if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+                event.preventDefault();
+                const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+                options[next]?.focus();
+              } else if (event.key === "Tab") { setOpen(false); btnRef.current?.focus(); }
+            }}
             style={{ position: "fixed", top: pos.top, left: pos.left, right: pos.right }}
-            className="z-[80] min-w-[168px] animate-pop-in rounded-2xl border border-line bg-surface p-1.5 shadow-lg2"
+            className="z-[80] max-h-[70dvh] min-w-[168px] max-w-[calc(100vw-16px)] overflow-y-auto animate-pop-in rounded-2xl border border-line bg-surface p-1.5 shadow-lg2"
           >
             {items.map((it) => (
               <button
@@ -88,6 +108,7 @@ export function Menu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
+                  btnRef.current?.focus();
                   it.onSelect();
                 }}
                 className={cn(

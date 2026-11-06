@@ -1,5 +1,49 @@
 # Dayflow — API Spec
 
+## Teams (web v1)
+
+All `/api/teams` routes require auth. Writes require Bearer auth. Every team
+service checks active membership; only the invite recipient can accept/decline.
+Creator-only actions are enforced server-side. See [Teams](TEAMS.md).
+
+| Method / path (prefix `/api/teams`) | Request / response |
+| --- | --- |
+| GET / | `{ teams }` with active members and open-task counts |
+| POST / | `{ name }` → 201 `{ team }` |
+| GET /invites | `{ invites }` for the signed-in recipient |
+| POST /invites/:id/accept or /decline | `{ ok:true }` |
+| GET /:id | `{ team }`, includes members, pending invites and historical people for attribution |
+| DELETE /:id | Exact `{ name }` → `{ ok:true }`; creator only |
+| POST /:id/invites | `{ email }` exact existing account → 201 `{ invite }` |
+| DELETE /:id/invites/:inviteId | `{ ok:true }` |
+| POST /:id/leave | `{ ok:true }`; creator cannot leave |
+| DELETE /:id/members/:userId | `{ ok:true }`; creator only |
+| GET /:id/tasks | `{ tasks }`; lazily archives Done tasks older than 24h |
+| POST /:id/tasks | `{ title,descriptionHtml,status,assigneeId,estimatedDays }` → 201 `{ task }` |
+| GET /:id/tasks/:taskId | `{ task }`, includes historical tasks |
+| PATCH /:id/tasks/:taskId | `{ version,...editableFields,orderIndex? }` → `{ task }` |
+| DELETE /:id/tasks/:taskId | `{ version }` → `{ ok:true }`; soft removal |
+| POST /:id/tasks/:taskId/restore | `{ version }` → `{ task }`; returns to To do |
+| GET /:id/history | `?kind=completed|removed&q=title&page=0` → `{ tasks,people,hasMore }`, 50/page |
+| GET /:id/tasks/:taskId/events | `{ events,people }` |
+| GET /:id/tasks/:taskId/messages | `?before=messageUuid` → `{ messages,people,hasMore }`, last 50 chronologically |
+| POST /:id/tasks/:taskId/messages | `{ id:uuid,bodyText,bodyHtml }` → 201 `{ ok:true }`; retry idempotent |
+| POST /:id/tasks/:taskId/read | `{ messageId }` → `{ ok:true }`; monotonically advances to that message's server time |
+| POST /:id/uploads | Multipart file → 201 `{ url,width,height }` |
+
+TeamStatus is todo/in_progress/completed. estimatedDays is null or a positive
+integer; assigneeId is null or an active member. Identity, attribution and server
+timestamps cannot be supplied by clients. Tasks include version, messageCount,
+and per-user unread. Stale edits/removals/restores return 409
+`{ error:{code:"TASK_CONFLICT",message},details:{task:latestTask} }`.
+
+GET `/uploads/teams/:id/:file` rechecks auth/membership and returns
+`Cache-Control: private, no-store`. No team content appears in personal sync.
+Existing SSE `change` frames contain no content. Invites/messages/uploads/task
+writes are rate limited; repeat invitations to a recipient/team have a one-hour
+cooldown. Exact-email lookup exposes no directory. Team HTML is sanitized;
+embedded images must use the current team's upload path.
+
 Prefix `/api`. JSON. Auth: `Authorization: Bearer <jwt>`; the `dayflow_token` cookie is accepted **only for safe GET** requests. Every query is scoped by the JWT's userId; a client-sent `userId` is ignored.
 
 Error shape: `{ "error": { "code": "STRING", "message": "text" } }`.

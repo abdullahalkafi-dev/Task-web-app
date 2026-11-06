@@ -16,6 +16,11 @@ const serwist = new Serwist({
   navigationPreload: false,
   runtimeCaching: [
     {
+      // Team images must recheck membership on every request, including after removal.
+      matcher: ({ url }) => url.pathname.startsWith("/uploads/teams/"),
+      handler: ({ request }) => fetch(request),
+    },
+    {
       // Editor images: CacheFirst, 60 days, max 300 entries (also readable offline).
       matcher: ({ url }) => url.pathname.startsWith("/uploads/"),
       handler: new CacheFirst({

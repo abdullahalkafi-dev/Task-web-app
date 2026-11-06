@@ -10,7 +10,7 @@ import { LogoMark } from "./Logo";
 import { SyncPill } from "./SyncPill";
 
 /** Slim header shown below 1024px only (the sidebar is a drawer there). */
-export function TopBar({ onOpenNotes }: { onOpenNotes: () => void }) {
+export function TopBar({ onOpenNotes, hideNotes }: { onOpenNotes: () => void; hideNotes?: boolean }) {
   const { user } = useAuth();
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 rounded-panel bg-surface px-3 shadow-sm2 md:px-4">
@@ -18,9 +18,9 @@ export function TopBar({ onOpenNotes }: { onOpenNotes: () => void }) {
         <LogoMark size={30} />
       </div>
 
-      <IconButton label="Open notes" tone="solid" onClick={onOpenNotes} className="hidden md:grid">
+      {!hideNotes && <IconButton label="Open notes" tone="solid" onClick={onOpenNotes} className="hidden md:grid">
         <StickyNote size={20} strokeWidth={1.75} />
-      </IconButton>
+      </IconButton>}
 
       <div className="ml-auto flex items-center gap-2">
         <span className="md:hidden">
