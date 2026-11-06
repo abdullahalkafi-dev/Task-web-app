@@ -383,7 +383,21 @@ full page (which legitimately dismissed the menu). A pre-existing offline-sync
 test assertion now waits for both persisted server tasks, preserving its exact
 content and second-device checks; production sync code is unchanged.
 
-Deployment evidence for this revision is appended after the backup-first rollout.
+Deployed UI revision `c0be139132c3ddf76f43121d0651edcf1a9772e6` through the
+backup-first rollout. Previous application checkout:
+`d4d00bdad289ee846dbbfe4b8895e1127e09dd7e`. Backup directory:
+`/home/deploy/backups/task-web-app/teams-20261106T171349Z`; MongoDB, uploads,
+Dayflow proxy configuration and previous-revision checksums all verified. The
+backend build reused its unchanged layers; the frontend production gate passed.
+Only Dayflow API/web containers were replaced. MongoDB retained its two-week
+uptime; no proxy configuration/reload or other-project changes were made. One
+initial startup 502 cleared on the next health retry.
+
+Read-only live verification passed: health/login/Teams/desktop-connect returned
+200; anonymous team APIs/images and SSE returned 401; team-image service-worker
+rule and required database indexes remained present. Teams HTML and all fourteen
+referenced JavaScript assets returned 200. The follow-up documentation commit
+records this evidence without another application build.
 
 ## Future entry format
 
