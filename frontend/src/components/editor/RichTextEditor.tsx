@@ -1,11 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BubbleMenu, EditorContent, useEditor, type Editor } from "@tiptap/react";
+import {
+  BubbleMenu,
+  EditorContent,
+  useEditor,
+  type Editor,
+} from "@tiptap/react";
+import { closeHistory } from "@tiptap/pm/history";
 import "@tiptap/starter-kit";
 import "@tiptap/extension-link";
 import "@tiptap/extension-underline";
-import { Bold, Code, Heading, ImagePlus, Italic, Link as LinkIcon, List, ListOrdered, Quote, Underline as UnderlineIcon, Unlink } from "lucide-react";
+import {
+  Bold,
+  Code,
+  Heading,
+  ImagePlus,
+  Italic,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Quote,
+  Table2,
+  Underline as UnderlineIcon,
+  Unlink,
+} from "lucide-react";
 import { useData } from "@/hooks/useData";
 import { api, ApiError } from "@/lib/api";
 import { containsLocalImages, hydrateLocalImages } from "@/lib/html";
@@ -14,9 +33,24 @@ import type { Entity } from "@/lib/types";
 import { cn } from "../ui/cn";
 import { Menu } from "../ui/Menu";
 import { useToast } from "../ui/Toast";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, buildExtensions } from "./extensions";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  buildExtensions,
+} from "./extensions";
+import { cleanPastedHtml, MAX_PASTE_CHARS, pasteSource } from "./paste";
 
-function ToolButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
+function ToolButton({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -50,13 +84,27 @@ export interface RichTextEditorProps {
   uploadImage?: (file: File) => Promise<{ url: string }>;
 }
 
-export function RichTextEditor({ value, onChange, entity, entityId, placeholder = "Write something…", autofocus, className, minHeight = 160, boxed, uploadImage }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  entity,
+  entityId,
+  placeholder = "Write something…",
+  autofocus,
+  className,
+  minHeight = 160,
+  boxed,
+  uploadImage,
+}: RichTextEditorProps) {
   const { db } = useData();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const editorRef = useRef<Editor | null>(null);
+  const plainPaste = useRef(false);
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -76,21 +124,51 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
       }
       if (uploadImage) {
         try {
-          if (!navigator.onLine) throw new Error("Reconnect to upload images to this team.");
+          if (!navigator.onLine)
+            throw new Error("Reconnect to upload images to this team.");
           const res = await uploadImage(file);
-          if (!editor.isDestroyed) editor.chain().focus().insertContent({ type: "image", attrs: { src: res.url } }).run();
-        } catch (error) { toast.show(error instanceof Error ? error.message : "Image upload failed.", "error"); }
+          if (!editor.isDestroyed)
+            editor
+              .chain()
+              .focus()
+              .insertContent({ type: "image", attrs: { src: res.url } })
+              .run();
+        } catch (error) {
+          toast.show(
+            error instanceof Error ? error.message : "Image upload failed.",
+            "error",
+          );
+        }
         return;
       }
       const putLocal = async (): Promise<void> => {
-        const { localId, blobUrl } = await queueImage(db, entity, entityId, file);
-        editor.chain().focus().insertContent({ type: "image", attrs: { src: blobUrl, "data-local-id": localId } }).run();
-        toast.show("Offline — image will upload when you are back online", "info");
+        const { localId, blobUrl } = await queueImage(
+          db,
+          entity,
+          entityId,
+          file,
+        );
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: "image",
+            attrs: { src: blobUrl, "data-local-id": localId },
+          })
+          .run();
+        toast.show(
+          "Offline — image will upload when you are back online",
+          "info",
+        );
       };
       if (!navigator.onLine) return putLocal();
       try {
         const res = await api.upload(file, file.name || "image.png");
-        editor.chain().focus().insertContent({ type: "image", attrs: { src: res.url } }).run();
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: "image", attrs: { src: res.url } })
+          .run();
       } catch (err) {
         if (err instanceof ApiError && err.status !== 0) {
           toast.show(err.message, "error");
@@ -110,26 +188,113 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
   const editor = useEditor({
     immediatelyRender: false,
     autofocus: autofocus ? "end" : false,
-    extensions: buildExtensions(placeholder),
+    extensions: buildExtensions(placeholder, () =>
+      toastRef.current.show(
+        "Table limit reached: 200 rows, 40 columns and 2,000 cells per description. Nested tables are not supported.",
+        "error",
+      ),
+    ),
     content: needsHydration ? "" : value,
     editorProps: {
-      attributes: { class: "ProseMirror", "aria-label": "Description", role: "textbox", "aria-multiline": "true" },
+      attributes: {
+        class: "ProseMirror",
+        "aria-label": "Description",
+        role: "textbox",
+        "aria-multiline": "true",
+      },
+      handleKeyDown: (_view, event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v")
+          plainPaste.current = event.shiftKey;
+        return false;
+      },
       handlePaste: (_view, event) => {
-        const files = Array.from(event.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
-        if (files.length === 0) return false; // let TipTap keep pasted HTML (headings, lists, bold, links, code)
+        const current = editorRef.current;
+        if (!current) return false;
+        const html = event.clipboardData?.getData("text/html") ?? "";
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        if (Math.max(html.length, text.length) > MAX_PASTE_CHARS) {
+          event.preventDefault();
+          toastRef.current.show(
+            "This paste is too large. Paste smaller sections (up to 500,000 characters).",
+            "error",
+          );
+          return true;
+        }
+        if (current.isActive("codeBlock")) {
+          plainPaste.current = false;
+          return false;
+        }
+        const files = Array.from(event.clipboardData?.files ?? []).filter((f) =>
+          f.type.startsWith("image/"),
+        );
+        const imageOnly =
+          html &&
+          !text &&
+          !/<table\b/i.test(html) &&
+          !(
+            new DOMParser().parseFromString(html, "text/html").body
+              .textContent ?? ""
+          ).trim();
+        if (files.length && ((!html && !text) || imageOnly)) {
+          event.preventDefault();
+          files.forEach((f) => void insertImageRef.current(f));
+          return true;
+        }
+        if (!html && !text) return false;
+        const literal = plainPaste.current;
+        plainPaste.current = false;
         event.preventDefault();
-        files.forEach((f) => void insertImageRef.current(f));
+        try {
+          if (Math.max(html.length, text.length) > MAX_PASTE_CHARS)
+            throw new Error(
+              "This paste is too large. Paste smaller sections (up to 500,000 characters).",
+            );
+          const source = pasteSource(html, text, literal);
+          const cleaned = cleanPastedHtml(source);
+          // Delegate HTML cell paste to ProseMirror's table plugin. It expands and
+          // replaces cell selections instead of inserting nested tables.
+          const nested =
+            current.isActive("table") && /<table\b/i.test(cleaned.html);
+          if (nested) {
+            current.view.dispatch(closeHistory(current.state.tr));
+            current.view.pasteHTML(cleaned.html);
+          }
+          else
+            current
+              .chain()
+              .focus()
+              .command(({ tr }) => {
+                closeHistory(tr);
+                return true;
+              })
+              .insertContent(cleaned.html)
+              .run();
+          current.view.dispatch(closeHistory(current.state.tr));
+          if (cleaned.warning) toastRef.current.show(cleaned.warning, "info");
+        } catch (error) {
+          toastRef.current.show(
+            error instanceof Error
+              ? error.message
+              : "Could not paste this content. Try pasting as plain text.",
+            "error",
+          );
+        }
         return true;
       },
       handleDrop: (_view, event) => {
-        const files = Array.from(event.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
+        const files = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
+          f.type.startsWith("image/"),
+        );
         if (files.length === 0) return false;
         event.preventDefault();
         files.forEach((f) => void insertImageRef.current(f));
         return true;
       },
     },
-    onUpdate: ({ editor: e }) => onChangeRef.current(e.isEmpty && !e.getHTML().includes("<img") ? "" : e.getHTML()),
+    onUpdate: ({ editor: e }) =>
+      onChangeRef.current(
+        e.isEmpty && !/<(?:img|table)\b/.test(e.getHTML()) ? "" : e.getHTML(),
+      ),
   });
 
   useEffect(() => {
@@ -150,7 +315,8 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
-  if (!editor) return <div className={cn("skeleton h-40 rounded-2xl", className)} />;
+  if (!editor)
+    return <div className={cn("skeleton h-40 rounded-2xl", className)} />;
 
   const applyLink = (): void => {
     const url = linkUrl.trim();
@@ -164,14 +330,27 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
     setLinkUrl("");
   };
 
-  const headingLevel = ([1, 2, 3] as const).find((l) => editor.isActive("heading", { level: l }));
+  const headingLevel = ([1, 2, 3] as const).find((l) =>
+    editor.isActive("heading", { level: l }),
+  );
 
   return (
-    <div className={cn("rounded-2xl", boxed && "overflow-hidden border border-line-strong", className)}>
+    <div
+      className={cn(
+        "rounded-2xl",
+        boxed && "overflow-hidden border border-line-strong",
+        className,
+      )}
+    >
       <div
         role="toolbar"
         aria-label="Formatting"
-        className={cn("z-10 flex flex-wrap items-center gap-1", boxed ? "tb-boxed border-b border-line bg-surface px-2 py-1.5" : "sticky top-0 rounded-full bg-surface-muted p-1")}
+        className={cn(
+          "z-10 flex flex-wrap items-center gap-1",
+          boxed
+            ? "tb-boxed border-b border-line bg-surface px-2 py-1.5"
+            : "sticky top-0 rounded-full bg-surface-muted p-1",
+        )}
       >
         <Menu
           label="Heading"
@@ -179,7 +358,8 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
           items={([1, 2, 3] as const).map((l) => ({
             label: `Heading ${l}`,
             active: headingLevel === l,
-            onSelect: () => editor.chain().focus().toggleHeading({ level: l }).run(),
+            onSelect: () =>
+              editor.chain().focus().toggleHeading({ level: l }).run(),
           }))}
           trigger={({ toggle, ref }) => (
             <button
@@ -189,32 +369,63 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
               title="Heading"
               onMouseDown={(e) => e.preventDefault()}
               onClick={toggle}
-              className={cn("grid h-9 w-9 place-items-center rounded-full text-ink-2 transition hover:bg-surface hover:text-ink", headingLevel && "bg-surface text-ink shadow-sm2")}
+              className={cn(
+                "grid h-9 w-9 place-items-center rounded-full text-ink-2 transition hover:bg-surface hover:text-ink",
+                headingLevel && "bg-surface text-ink shadow-sm2",
+              )}
             >
               <Heading size={18} strokeWidth={1.75} />
             </button>
           )}
         />
-        <ToolButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <ToolButton
+          label="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
           <Bold size={18} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <ToolButton
+          label="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
           <Italic size={18} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+        <ToolButton
+          label="Underline"
+          active={editor.isActive("underline")}
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+        >
           <UnderlineIcon size={18} strokeWidth={1.75} />
         </ToolButton>
         <span aria-hidden className="mx-1 h-5 w-px bg-line-strong" />
-        <ToolButton label="Bullet list" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        <ToolButton
+          label="Bullet list"
+          active={editor.isActive("bulletList")}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        >
           <List size={18} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Numbered list" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+        <ToolButton
+          label="Numbered list"
+          active={editor.isActive("orderedList")}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
           <ListOrdered size={18} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Quote" active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+        <ToolButton
+          label="Quote"
+          active={editor.isActive("blockquote")}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        >
           <Quote size={18} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Code block" active={editor.isActive("codeBlock")} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
+        <ToolButton
+          label="Code block"
+          active={editor.isActive("codeBlock")}
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        >
           <Code size={18} strokeWidth={1.75} />
         </ToolButton>
         <span aria-hidden className="mx-1 h-5 w-px bg-line-strong" />
@@ -222,15 +433,114 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
           label="Link"
           active={editor.isActive("link")}
           onClick={() => {
-            setLinkUrl((editor.getAttributes("link").href as string | undefined) ?? "");
+            setLinkUrl(
+              (editor.getAttributes("link").href as string | undefined) ?? "",
+            );
             setLinkOpen((o) => !o);
           }}
         >
           <LinkIcon size={18} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Insert image" onClick={() => fileRef.current?.click()}>
+        <ToolButton
+          label="Insert image"
+          onClick={() => fileRef.current?.click()}
+        >
           <ImagePlus size={18} strokeWidth={1.75} />
         </ToolButton>
+        <Menu
+          label="Table actions"
+          align="left"
+          items={
+            editor.isActive("table")
+              ? [
+                  {
+                    label: "Add row above",
+                    onSelect: () => {
+                      editor.chain().focus().addRowBefore().run();
+                    },
+                  },
+                  {
+                    label: "Add row below",
+                    onSelect: () => {
+                      editor.chain().focus().addRowAfter().run();
+                    },
+                  },
+                  {
+                    label: "Add column before",
+                    onSelect: () => {
+                      editor.chain().focus().addColumnBefore().run();
+                    },
+                  },
+                  {
+                    label: "Add column after",
+                    onSelect: () => {
+                      editor.chain().focus().addColumnAfter().run();
+                    },
+                  },
+                  {
+                    label: "Toggle header row",
+                    onSelect: () => {
+                      editor.chain().focus().toggleHeaderRow().run();
+                    },
+                  },
+                  {
+                    label: "Merge or split cells",
+                    onSelect: () => {
+                      editor.chain().focus().mergeOrSplit().run();
+                    },
+                  },
+                  {
+                    label: "Delete row",
+                    danger: true,
+                    onSelect: () => {
+                      editor.chain().focus().deleteRow().run();
+                    },
+                  },
+                  {
+                    label: "Delete column",
+                    danger: true,
+                    onSelect: () => {
+                      editor.chain().focus().deleteColumn().run();
+                    },
+                  },
+                  {
+                    label: "Delete table",
+                    danger: true,
+                    onSelect: () => {
+                      editor.chain().focus().deleteTable().run();
+                    },
+                  },
+                ]
+              : [
+                  {
+                    label: "Insert table",
+                    onSelect: () => {
+                      editor
+                        .chain()
+                        .focus()
+                        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                        .run();
+                    },
+                  },
+                ]
+          }
+          trigger={({ toggle, ref }) => (
+            <button
+              ref={ref}
+              type="button"
+              aria-label="Table actions"
+              title="Table"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={toggle}
+              className={cn(
+                "grid h-9 w-9 place-items-center rounded-full text-ink-2 transition hover:bg-surface hover:text-ink",
+                editor.isActive("table") && "bg-surface text-ink shadow-sm2",
+              )}
+            >
+              <Table2 size={18} strokeWidth={1.75} />
+            </button>
+          )}
+        />
         <input
           ref={fileRef}
           type="file"
@@ -239,7 +549,9 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
           hidden
           data-testid="editor-image-input"
           onChange={(e) => {
-            Array.from(e.target.files ?? []).forEach((f) => void insertImage(f));
+            Array.from(e.target.files ?? []).forEach(
+              (f) => void insertImage(f),
+            );
             e.target.value = "";
           }}
         />
@@ -247,7 +559,10 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
 
       {linkOpen && (
         <form
-          className={cn("flex items-center gap-2", boxed ? "border-b border-line px-2 py-2" : "mt-2")}
+          className={cn(
+            "flex items-center gap-2",
+            boxed ? "border-b border-line px-2 py-2" : "mt-2",
+          )}
           onSubmit={(e) => {
             e.preventDefault();
             applyLink();
@@ -261,21 +576,44 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
             aria-label="Link URL"
             className="h-10 flex-1 rounded-full bg-surface-muted px-4 text-sm outline-none focus:ring-2 focus:ring-accent-blue/30"
           />
-          <button type="submit" className="h-10 rounded-full bg-primary px-4 text-sm font-medium text-primary-ink">
+          <button
+            type="submit"
+            className="h-10 rounded-full bg-primary px-4 text-sm font-medium text-primary-ink"
+          >
             Apply
           </button>
         </form>
       )}
 
-      <BubbleMenu editor={editor} tippyOptions={{ duration: 120 }} className="flex items-center gap-0.5 rounded-full border border-line bg-surface p-1 shadow-lg2">
-        <ToolButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+      <BubbleMenu
+        editor={editor}
+        tippyOptions={{
+          duration: 120,
+          aria: { content: null, expanded: false },
+        }}
+        className="flex items-center gap-0.5 rounded-full border border-line bg-surface p-1 shadow-lg2"
+      >
+        <ToolButton
+          label="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
           <Bold size={16} strokeWidth={1.75} />
         </ToolButton>
-        <ToolButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <ToolButton
+          label="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
           <Italic size={16} strokeWidth={1.75} />
         </ToolButton>
         {editor.isActive("link") ? (
-          <ToolButton label="Remove link" onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}>
+          <ToolButton
+            label="Remove link"
+            onClick={() =>
+              editor.chain().focus().extendMarkRange("link").unsetLink().run()
+            }
+          >
             <Unlink size={16} strokeWidth={1.75} />
           </ToolButton>
         ) : (
@@ -291,7 +629,11 @@ export function RichTextEditor({ value, onChange, entity, entityId, placeholder 
         )}
       </BubbleMenu>
 
-      <EditorContent editor={editor} className={cn("rich", boxed ? "px-4 py-3" : "mt-3")} style={{ minHeight }} />
+      <EditorContent
+        editor={editor}
+        className={cn("rich", boxed ? "px-4 py-3" : "mt-3")}
+        style={{ minHeight }}
+      />
     </div>
   );
 }

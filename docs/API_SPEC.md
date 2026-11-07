@@ -1,5 +1,14 @@
 # Dayflow — API Spec
 
+## Rich content capability
+
+Table-aware editors send `X-Dayflow-Rich-Content: tables-v1`. Sync upserts and
+team task patches from clients without this capability cannot change a stored
+table description (409 `EDITOR_UPDATE_REQUIRED`); unchanged descriptions and
+ordinary older documents remain compatible. Sanitized HTML supports tables,
+headers, bounded spans and cell alignment, with independent dimension/complexity
+limits. See [rich text](RICH_TEXT.md) for paste behavior and client compatibility.
+
 ## Teams (web v1)
 
 All `/api/teams` routes require auth. Writes require Bearer auth. Every team

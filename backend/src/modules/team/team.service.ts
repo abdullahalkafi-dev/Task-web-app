@@ -17,7 +17,7 @@ import type {
 } from "@dayflow/shared";
 import { config } from "../../config/env";
 import { AppError } from "../../utils/AppError";
-import { htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
+import { assertRichContentCompatible, htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
 import { notifyUser } from "../sync/sync.events";
 import { UserModel } from "../user/user.model";
 import type { ITeam, ITeamInvite, ITeamTask } from "./team.interface";
@@ -636,6 +636,7 @@ export async function patchTask(
   userId: string,
   taskId: string,
   input: TeamTaskPatch,
+  supportsTables = false,
 ): Promise<TeamTask> {
   return withMember(teamId, userId, async () => {
     await archiveTeam(teamId);
@@ -653,6 +654,7 @@ export async function patchTask(
     if (input.title !== undefined) changes.title = input.title;
     if (input.descriptionHtml !== undefined) {
       changes.descriptionHtml = cleanHtml(teamId, input.descriptionHtml);
+      assertRichContentCompatible(task.descriptionHtml, changes.descriptionHtml, supportsTables);
       changes.descriptionText = htmlToPlainText(changes.descriptionHtml);
     }
     if (input.estimatedDays !== undefined)

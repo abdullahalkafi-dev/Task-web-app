@@ -114,7 +114,7 @@ function TaskCardImpl(
             if (onEdit && !(e.target as HTMLElement).closest("a")) onEdit(task);
           }}
         >
-          <RichContent html={task.descriptionHtml} className="!text-[13px] !leading-relaxed !text-ink-2 [&_h1]:!text-base [&_h2]:!text-[15px] [&_h3]:!text-sm [&_img]:max-h-40 [&_img]:w-auto [&>*:last-child]:!mb-0" />
+          {/<table\b/i.test(task.descriptionHtml) ? <p className="line-clamp-3 text-[13px] leading-relaxed text-ink-2">{task.descriptionText || 'Table — open task to view details'}</p> : <RichContent html={task.descriptionHtml} className="!text-[13px] !leading-relaxed !text-ink-2 [&_h1]:!text-base [&_h2]:!text-[15px] [&_h3]:!text-sm [&_img]:max-h-40 [&_img]:w-auto [&>*:last-child]:!mb-0" />}
         </div>
       )}
 

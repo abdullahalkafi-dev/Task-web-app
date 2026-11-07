@@ -26,7 +26,7 @@ interface ErrorBody {
 }
 
 export async function request<T>(method: string, path: string, body?: unknown, tokenOverride?: string): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { 'X-Dayflow-Rich-Content': 'tables-v1' };
   const token = tokenOverride ?? tokenGetter();
   if (token) headers.Authorization = `Bearer ${token}`;
   let payload: BodyInit | undefined;

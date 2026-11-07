@@ -11,7 +11,7 @@ export const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
  * Applies a batch of changes with last-write-wins semantics. Deletes are tombstone upserts:
  * the doc carries `deletedAt` and the change's timestamp is the LWW key.
  */
-export async function push(userId: string, body: PushBody): Promise<ISyncPushResponse> {
+export async function push(userId: string, body: PushBody, supportsTables = false): Promise<ISyncPushResponse> {
   const taskIdx: number[] = [];
   const noteIdx: number[] = [];
   const taskDocs: ITaskUpsert[] = [];
@@ -30,8 +30,8 @@ export async function push(userId: string, body: PushBody): Promise<ISyncPushRes
   });
 
   const [taskResults, noteResults] = await Promise.all([
-    taskService.upsertMany(userId, taskDocs),
-    noteService.upsertMany(userId, noteDocs),
+    taskService.upsertMany(userId, taskDocs, supportsTables),
+    noteService.upsertMany(userId, noteDocs, supportsTables),
   ]);
 
   const results: ISyncPushResult[] = new Array<ISyncPushResult>(body.changes.length);

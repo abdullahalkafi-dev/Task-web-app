@@ -399,6 +399,58 @@ rule and required database indexes remained present. Teams HTML and all fourteen
 referenced JavaScript assets returned 200. The follow-up documentation commit
 records this evidence without another application build.
 
+## 2026-11-07 — Structured paste and table editing (web/backend)
+
+User reported that copying a formatted table into a note flattened its cells and
+requested robust edge-case handling, implementation and deployment. Added optional
+TipTap 2 table modules to the shared editor configuration and enabled them in the
+hosted editor. HTML tables, GFM Markdown tables and consistent quoted TSV clipboard
+data retain structure. Source presentation styles are normalized to Dayflow;
+empty/merged cells, alignment, captions, text around tables and inline formatting
+are supported. The contextual Table menu adds row/column/header/merge/split/delete
+actions without another persistent toolbar. Wide tables scroll within the editor
+and read-only view; personal task cards use compact previews for table descriptions.
+
+Added clipboard limits, nesting/complexity checks, deliberate nested-table/image
+fallback notices and transaction limits during table editing. Markdown rows with
+excess cells are rejected with a plain-text alternative rather than accepting
+GFM's silent truncation. HTML takes priority over its text/image clipboard
+alternatives. Ctrl/Command+Shift+V stays literal and code-block paste bypasses
+table conversion. Preview extraction separates cells and paragraphs.
+
+Backend sanitization independently permits bounded table structure, strips unsafe
+attributes/URLs and validates dimensions including merged/padded cells. Web requests
+declare `X-Dayflow-Rich-Content: tables-v1`; sync and team edits from older clients
+cannot replace an existing table description (409 `EDITOR_UPDATE_REQUIRED`). The
+server copy is retained and unchanged-description metadata updates remain allowed.
+No database migration, proxy change or native distribution is part of this release.
+Existing Android builds still need table support; use the website for these
+documents. See RICH_TEXT.md for behavior, limits and fallback details.
+
+Backend typecheck/lint/build and 60 tests passed; frontend unit suite passed 45
+tests. Existing mobile checks (16 tests/editor bundle) and desktop checks (3 tests
+and build) passed with the optional shared extension contract. The first complete
+Chromium suite passed 20 tests; visual review then identified squeezed mobile
+columns, corrected with a readable minimum width and genuine data-theme captures.
+Final frontend typecheck/lint/production build and the full 21-test Chromium suite
+passed after that correction. New browser checks cover the supplied five-row
+timeline in notes and team tasks; HTML task tables; undo/redo; cell paste without
+nested tables; literal paste; rejected oversized clipboard data; empty-table
+autosave/reload; rejected column growth without mutation; offline edit/reload/sync;
+360/768/1440px tables in both actual data-theme modes; narrow-screen column width
+and internal scrolling; and an axe scan. Final desktop light and mobile dark
+captures were visually inspected. Shell/Node syntax checks passed for the release
+scripts. Deployment evidence is recorded in a follow-up entry.
+
+Dependency choice: table extensions pinned to the installed TipTap 2.27.3 runtime;
+markdown-it pinned to patched 14.3.3 after checking its advisories. Existing broader
+dependency advisories are not addressed by unrelated forced upgrades. No claim of
+manual acceptance across every external application's clipboard format is made.
+
+Deployment order now builds both images, waits for the compatible API to be
+healthy, then replaces the frontend. This prevents new table writes reaching the
+previous sanitizer. Existing backup-first rollout remains the release entry point.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

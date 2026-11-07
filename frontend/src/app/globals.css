@@ -160,6 +160,8 @@ body {
 
 /* Rich text */
 .rich {
+  min-width: 0;
+  max-width: 100%;
   font-size: 15px;
   line-height: 1.7;
   color: var(--text);
@@ -180,6 +182,18 @@ body {
 .rich a { color: var(--accent-blue); text-decoration: underline; text-underline-offset: 2px; }
 .rich img { max-width: 100%; height: auto; border-radius: 12px; margin: 0.4em 0; }
 .rich img.ProseMirror-selectednode { outline: 2px solid var(--accent-blue); }
+.rich .tableWrapper { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; margin: 0.8em 0; border-radius: 8px; }
+.rich table { width: 100%; min-width: 420px; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+.rich th, .rich td { position: relative; min-width: 100px; border: 1px solid var(--border-strong); padding: 10px 12px; vertical-align: top; overflow-wrap: anywhere; font-weight: 400; }
+.rich th { background: var(--surface-muted); font-weight: 600; }
+.rich th > :last-child, .rich td > :last-child { margin-bottom: 0; }
+.rich th[align="left"], .rich td[align="left"] { text-align: left; }
+.rich th[align="center"], .rich td[align="center"] { text-align: center; }
+.rich th[align="right"], .rich td[align="right"] { text-align: right; }
+.rich th:not([align]) { text-align: left; }
+.rich .selectedCell::after { content: ''; position: absolute; inset: 0; background: var(--accent-blue); opacity: 0.12; pointer-events: none; }
+.rich .tableWrapper:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.rich .ProseMirror { min-width: 0; }
 .rich .ProseMirror { outline: none; min-height: 140px; }
 .rich .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

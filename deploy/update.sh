@@ -11,7 +11,10 @@ if [ -n "${DAYFLOW_EXPECTED_REVISION:-}" ]; then
 fi
 # Build both images before replacing either service. Keep MongoDB and other projects running.
 docker compose build dayflow-api dayflow-web
-docker compose up -d --no-build --no-deps dayflow-api dayflow-web
+# The new editor must never write tables to the previous sanitizer. Make the
+# backward-compatible API healthy before exposing the new frontend.
+docker compose up -d --no-build --no-deps --wait --wait-timeout 90 dayflow-api
+docker compose up -d --no-build --no-deps dayflow-web
 docker compose ps
 
 echo "Waiting for the site..."

@@ -7,6 +7,7 @@ function parse(html: string): Document | null {
 
 export function htmlToText(html: string, max = 300): string {
   const doc = parse(html);
+  if (doc) doc.querySelectorAll('td, th, tr, p, li, br, h1, h2, h3').forEach(el => el.append(' '));
   const text = doc ? (doc.body.textContent ?? "") : html.replace(/<[^>]+>/g, " ");
   return text.replace(/\s+/g, " ").trim().slice(0, max);
 }

@@ -480,6 +480,17 @@ describe("team tasks, conflicts and history", () => {
   });
 });
 describe("team images and per-task chat", () => {
+  it('preserves tables and blocks old-client description flattening', async () => {
+    const { owner, base, task } = await fixture();
+    const headers = { ...bearer(owner.token), 'X-Dayflow-Rich-Content': 'tables-v1' };
+    const html = '<table><tr><th>Timeline</th><th>Work</th></tr><tr><td>Month 1</td><td>Design</td></tr></table>';
+    const saved = await request(app).patch(`${base}/tasks/${task.id}`).set(headers).send({ version: task.version, descriptionHtml: html });
+    expect(saved.status).toBe(200); expect(saved.body.task.descriptionHtml).toContain('<table>');
+    const stale = await request(app).patch(`${base}/tasks/${task.id}`).set(bearer(owner.token)).send({ version: saved.body.task.version, descriptionHtml: '<p>TimelineWorkMonth 1Design</p>' });
+    expect(stale.status).toBe(409); expect(stale.body.error.code).toBe('EDITOR_UPDATE_REQUIRED');
+    const current = await request(app).get(`${base}/tasks/${task.id}`).set(bearer(owner.token));
+    expect(current.body.task.descriptionHtml).toContain('<table>');
+  });
   it("sanitizes descriptions, rejects invalid estimates and foreign/private image paths", async () => {
     const { owner, base } = await fixture();
     const clean = await request(app)

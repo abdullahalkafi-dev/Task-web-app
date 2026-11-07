@@ -1,3 +1,10 @@
-export function buildExtensions<T>(placeholder: string, modules: Record<'Image'|'Link'|'Placeholder'|'Underline'|'StarterKit', T>): T[];
+export function buildExtensions<T>(
+  placeholder: string,
+  modules: Record<
+    "Image" | "Link" | "Placeholder" | "Underline" | "StarterKit",
+    T
+  > &
+    Partial<Record<"Table" | "TableRow" | "TableCell" | "TableHeader", T>>,
+): T[];
 export const ALLOWED_IMAGE_TYPES: string[];
 export const MAX_IMAGE_BYTES: number;

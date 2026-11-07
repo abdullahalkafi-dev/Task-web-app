@@ -32,6 +32,12 @@ Read-only post-release verification, run from the server checkout:
 docker compose exec -T dayflow-api node < deploy/verify-teams.cjs
 ```
 
+After a rich-text release, also run the read-only sanitizer and editor-bundle check:
+
+```bash
+docker compose exec -T dayflow-api node < deploy/verify-rich-text.cjs
+```
+
 This checks public routes, anonymous denials, the service worker's team-image
 rule and required database indexes without creating accounts or tasks.
 
@@ -83,7 +89,10 @@ git add -A && git commit -m "what changed" && git push
 ssh -p 2222 deploy@72.61.246.98 /opt/projects/task-web-app/deploy/update.sh
 ```
 
-`update.sh` pulls `main`, rebuilds, restarts only this project's containers and checks that the site answers. The
+`update.sh` pulls `main`, builds both images, waits for the backward-compatible API
+to be healthy, then replaces the frontend and checks that the site answers. This
+ordering prevents a new table editor from writing to an older sanitizer. Only
+this project's API/web containers are replaced. The
 Docker build runs typecheck and lint first, so a broken change fails the build and the running site stays up.
 
 ## Where things live on the server

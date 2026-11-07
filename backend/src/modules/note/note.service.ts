@@ -1,5 +1,5 @@
 import { AppError } from "../../utils/AppError";
-import { htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
+import { assertRichContentCompatible, htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
 import type { INote, INoteDTO, INoteUpsert, INoteUpsertResult } from "./note.interface";
 import { NoteModel } from "./note.model";
 import { notifyUser } from "../sync/sync.events";
@@ -22,7 +22,7 @@ export async function listNotes(userId: string): Promise<INoteDTO[]> {
   return notes.map(toNoteDTO);
 }
 
-async function upsertOne(userId: string, doc: INoteUpsert): Promise<INoteUpsertResult> {
+async function upsertOne(userId: string, doc: INoteUpsert, supportsTables: boolean): Promise<INoteUpsertResult> {
   const existing = await NoteModel.findById(doc.id).lean<INote>();
   if (existing && existing.userId !== userId) {
     return { id: doc.id, applied: false, winner: null, error: "FORBIDDEN" };
@@ -32,6 +32,7 @@ async function upsertOne(userId: string, doc: INoteUpsert): Promise<INoteUpsertR
     return { id: doc.id, applied: false, winner: toNoteDTO(existing) };
   }
   const html = sanitizeRichHtml(doc.descriptionHtml);
+  if (existing) assertRichContentCompatible(existing.descriptionHtml, html, supportsTables);
   const saved = await NoteModel.findOneAndUpdate(
     { _id: doc.id, userId },
     {
@@ -54,9 +55,9 @@ async function upsertOne(userId: string, doc: INoteUpsert): Promise<INoteUpsertR
 }
 
 /** Last-write-wins merge by `updatedAt`. Results are aligned with the input order. */
-export async function upsertMany(userId: string, docs: INoteUpsert[]): Promise<INoteUpsertResult[]> {
+export async function upsertMany(userId: string, docs: INoteUpsert[], supportsTables = false): Promise<INoteUpsertResult[]> {
   const results: INoteUpsertResult[] = [];
-  for (const doc of docs) results.push(await upsertOne(userId, doc));
+  for (const doc of docs) results.push(await upsertOne(userId, doc, supportsTables));
   return results;
 }
 

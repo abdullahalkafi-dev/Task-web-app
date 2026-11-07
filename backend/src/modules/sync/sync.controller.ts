@@ -4,7 +4,7 @@ import * as syncService from "./sync.service";
 import type { PullQuery, PushBody } from "./sync.validation";
 
 export const push = catchAsync<ParamsDictionary, unknown, PushBody>(async (req, res) => {
-  const result = await syncService.push(req.user.id, req.body);
+  const result = await syncService.push(req.user.id, req.body, req.get('X-Dayflow-Rich-Content') === 'tables-v1');
   res.json(result);
 });
 

@@ -85,6 +85,7 @@ export const patchTask = catchAsync(async (req, res) => {
       req.user.id,
       req.params.taskId,
       schemas.patchTaskSchema.parse(req.body),
+      req.get('X-Dayflow-Rich-Content') === 'tables-v1',
     ),
   });
 });

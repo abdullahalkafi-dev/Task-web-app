@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../utils/AppError";
 import { dhakaDateKey } from "../../utils/dhaka";
-import { htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
+import { assertRichContentCompatible, htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
 import type { ITask, ITaskDTO, ITaskUpsert, ITaskUpsertResult } from "./task.interface";
 import { TaskModel } from "./task.model";
 import { notifyUser } from "../sync/sync.events";
@@ -41,7 +41,7 @@ export async function getDatesInMonth(userId: string, month: string): Promise<st
   return (dates as string[]).sort();
 }
 
-async function upsertOne(userId: string, doc: ITaskUpsert): Promise<ITaskUpsertResult> {
+async function upsertOne(userId: string, doc: ITaskUpsert, supportsTables: boolean): Promise<ITaskUpsertResult> {
   const existing = await TaskModel.findById(doc.id).lean<ITask>();
   if (existing && existing.userId !== userId) {
     return { id: doc.id, applied: false, winner: null, error: "FORBIDDEN" };
@@ -51,6 +51,7 @@ async function upsertOne(userId: string, doc: ITaskUpsert): Promise<ITaskUpsertR
     return { id: doc.id, applied: false, winner: toTaskDTO(existing) };
   }
   const html = sanitizeRichHtml(doc.descriptionHtml);
+  if (existing) assertRichContentCompatible(existing.descriptionHtml, html, supportsTables);
   const saved = await TaskModel.findOneAndUpdate(
     { _id: doc.id, userId },
     {
@@ -79,9 +80,9 @@ async function upsertOne(userId: string, doc: ITaskUpsert): Promise<ITaskUpsertR
 }
 
 /** Last-write-wins merge by `updatedAt`. Results are aligned with the input order. */
-export async function upsertMany(userId: string, docs: ITaskUpsert[]): Promise<ITaskUpsertResult[]> {
+export async function upsertMany(userId: string, docs: ITaskUpsert[], supportsTables = false): Promise<ITaskUpsertResult[]> {
   const results: ITaskUpsertResult[] = [];
-  for (const doc of docs) results.push(await upsertOne(userId, doc));
+  for (const doc of docs) results.push(await upsertOne(userId, doc, supportsTables));
   return results;
 }
 
