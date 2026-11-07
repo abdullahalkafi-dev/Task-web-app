@@ -451,6 +451,28 @@ Deployment order now builds both images, waits for the compatible API to be
 healthy, then replaces the frontend. This prevents new table writes reaching the
 previous sanitizer. Existing backup-first rollout remains the release entry point.
 
+### Structured paste deployment evidence
+
+Application commit `671707090b5b782002b808d6c6eb905aadd137df` was pushed to main
+and deployed through `deploy/teams-rollout.sh` with that exact expected revision.
+Previous server/application checkout: `c0be139132c3ddf76f43121d0651edcf1a9772e6`.
+Backup: `/home/deploy/backups/task-web-app/teams-20261107T070154Z`; MongoDB, uploads,
+Dayflow proxy configuration and previous revision all passed SHA-256 verification.
+Both production image gates passed. The API became healthy before frontend
+replacement. One initial frontend startup 502 cleared on the next health retry.
+Only Dayflow API/web were replaced; MongoDB retained its two-week uptime, with
+no shared nginx or other-project changes.
+
+Read-only `verify-rich-text.cjs` passed against the deployed code: table structure,
+spans/alignment, separated preview text, size limits and legacy compatibility
+guard. Public homepage plus all 20 referenced JavaScript assets returned 200;
+downloaded scripts contained the updated editor and tables-v1 capability marker.
+Existing `verify-teams.cjs` also passed: health/login/Teams/desktop-connect 200,
+anonymous team APIs/images/SSE 401, team-image service-worker rule and required
+database indexes present. API was healthy and web running at the expected revision.
+No production accounts or task/note documents were created for verification.
+This follow-up documentation commit does not require another application build.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.
