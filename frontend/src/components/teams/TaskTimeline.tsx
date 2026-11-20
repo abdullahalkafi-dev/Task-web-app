@@ -48,7 +48,11 @@ export function TaskTimeline({
                       ? "removed the task"
                       : event.type === "restored"
                         ? "restored the task"
-                        : "moved the completed task to History"}
+                        : event.type === "delivered"
+                          ? "marked the task delivered to the client"
+                          : event.type === "undelivered"
+                            ? "marked the task not delivered"
+                            : "moved the delivered task to History"}
             .
           </p>
           <time className="text-xs text-ink-3" dateTime={event.at}>

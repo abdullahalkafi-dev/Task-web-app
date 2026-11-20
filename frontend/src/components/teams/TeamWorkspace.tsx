@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
+  FolderKanban,
   History,
   LayoutGrid,
   List,
@@ -20,14 +21,18 @@ import { ApiError } from "@/lib/api";
 import { refreshTeams, teamsApi } from "@/lib/teams-api";
 import {
   asBoardTask,
+  awaitingDelivery,
+  filterByProject,
   filterTeamTasks,
   personName,
+  scopeTasks,
   TEAM_STATUS_LABEL,
   teamOverdue,
   toTeamStatus,
+  type TeamScope,
 } from "@/lib/team-utils";
 import { computeMove } from "@/lib/order";
-import { formatDhaka } from "@/lib/time";
+import { formatDateKey, formatDhaka } from "@/lib/time";
 import type { TaskDoc, TaskStatus } from "@/lib/types";
 import { TaskBoard } from "../tasks/TaskBoard";
 import { BoardSkeleton } from "../tasks/BoardSkeleton";
@@ -42,6 +47,7 @@ import { PillTabs } from "../ui/PillTabs";
 import { useToast } from "../ui/Toast";
 import { cn } from "../ui/cn";
 import { MembersDialog } from "./MembersDialog";
+import { ProjectsDialog } from "./ProjectsDialog";
 import { TeamTaskEditor } from "./TeamTaskEditor";
 
 function DropdownChevron({ open }: { open: boolean }) {
@@ -80,6 +86,9 @@ export function TeamWorkspace({
   const [view, setView] = useState<"board" | "list" | null>(null);
   const [filter, setFilter] = useState("all");
   const [memberFilter, setMemberFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [scope, setScope] = useState<TeamScope>("board");
+  const [showProjects, setShowProjects] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [action, setAction] = useState<"leave" | "delete" | null>(null);
   const [confirmation, setConfirmation] = useState("");
@@ -88,6 +97,7 @@ export function TeamWorkspace({
   const [editor, setEditor] = useState<{
     task: TeamTask | null;
     status: TeamStatus;
+    project?: string | null;
     chat?: boolean;
   } | null>(null);
   const [removing, setRemoving] = useState<TeamTask | null>(null);
@@ -147,9 +157,18 @@ export function TeamWorkspace({
   const add = useCallback(
     (status: TaskStatus = "notStarted") => {
       if (!disabled && team)
-        setEditor({ task: null, status: toTeamStatus[status] });
+        setEditor({
+          task: null,
+          status: toTeamStatus[status],
+          project:
+            projectFilter !== "all" &&
+            projectFilter !== "none" &&
+            team.projects.some((p) => p.id === projectFilter && !p.archivedAt)
+              ? projectFilter
+              : null,
+        });
     },
-    [disabled, team],
+    [disabled, team, projectFilter],
   );
   useEffect(() => {
     const onAdd = () => {
@@ -166,11 +185,22 @@ export function TeamWorkspace({
   const selectedMember = team?.members.find(
     (member) => member.id === memberFilter,
   );
-  const visible = filterTeamTasks(
-    tasks,
-    filter === "mine" ? userId : (selectedMember?.id ?? "all"),
+  const selectedProject = team?.projects.find((p) => p.id === projectFilter);
+  const projectLabel = (id: string | null) =>
+    team?.projects.find((p) => p.id === id)?.name ?? null;
+  const scoped = filterByProject(
+    filterTeamTasks(
+      tasks,
+      filter === "mine" ? userId : (selectedMember?.id ?? "all"),
+    ),
+    projectFilter,
   );
-  const boardTasks = visible.map(asBoardTask);
+  const visible = scopeTasks(scoped, scope);
+  const awaitingCount = scopeTasks(scoped, "awaiting").length;
+  const overdueCount = scopeTasks(scoped, "overdue").length;
+  const boardTasks = visible.map((task, index) =>
+    asBoardTask(task, scope === "board" ? task.orderIndex : (index + 1) * 1024),
+  );
   const seq = new Map(
     [...tasks]
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -191,8 +221,19 @@ export function TeamWorkspace({
           assignee: original.assigneeId
             ? personName(team?.members ?? [], original.assigneeId)
             : null,
-          estimatedDays: original.estimatedDays,
+          project:
+            team?.projects.find((p) => p.id === original.projectId)?.name ??
+            null,
+          deliveryLabel: original.deliveredAt
+            ? `Delivered ${formatDhaka(original.deliveredAt, "D MMM")}`
+            : original.plannedDeliveryDate
+              ? `${teamOverdue(original) ? "Overdue" : "Due"} ${formatDateKey(original.plannedDeliveryDate, "D MMM")}`
+              : "No delivery date",
           overdue: teamOverdue(original),
+          delivered: !!original.deliveredAt,
+          onDeliver: awaitingDelivery(original)
+            ? () => void run(() => teamsApi.deliver(teamId, original), "Marked delivered")
+            : undefined,
           messageCount: original.messageCount,
           unread: original.unread,
         };
@@ -229,7 +270,7 @@ export function TeamWorkspace({
         });
       },
     }),
-    [disabled, byId, team?.members, teamId, run],
+    [disabled, byId, team?.members, team?.projects, teamId, run],
   );
   const openTask = useCallback(
     (task: TaskDoc) => {
@@ -373,6 +414,11 @@ export function TeamWorkspace({
                   ),
               },
               {
+                label: "Projects",
+                icon: <FolderKanban size={16} />,
+                onSelect: () => setShowProjects(true),
+              },
+              {
                 label: team.creatorId === userId ? "Delete team" : "Leave team",
                 danger: true,
                 onSelect: () => {
@@ -420,6 +466,71 @@ export function TeamWorkspace({
                   { value: "mine", label: "Assigned to me" },
                 ]}
               />
+              <div
+                className={cn(
+                  "inline-flex h-10 max-w-[220px] items-center rounded-full border border-line bg-surface text-[13px] font-medium text-ink-2 transition hover:border-line-strong",
+                  projectFilter !== "all" && "border-line-strong text-ink",
+                )}
+              >
+                <Menu
+                  label="Filter by project"
+                  align="left"
+                  selection
+                  items={[
+                    {
+                      id: "all",
+                      label: "All projects",
+                      active: projectFilter === "all",
+                      onSelect: () => setProjectFilter("all"),
+                    },
+                    ...team.projects
+                      .filter((p) => !p.archivedAt || p.id === projectFilter)
+                      .map((p) => ({
+                        id: p.id,
+                        label: p.archivedAt ? `${p.name} (archived)` : p.name,
+                        active: p.id === projectFilter,
+                        onSelect: () => setProjectFilter(p.id),
+                      })),
+                    {
+                      id: "none",
+                      label: "No project",
+                      active: projectFilter === "none",
+                      onSelect: () => setProjectFilter("none"),
+                    },
+                  ]}
+                  trigger={({ ref, toggle, open }) => (
+                    <button
+                      ref={ref}
+                      type="button"
+                      onClick={toggle}
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      aria-label={`Filter by project: ${projectFilter === "all" ? "All projects" : projectFilter === "none" ? "No project" : (selectedProject?.name ?? "Project")}`}
+                      className="flex h-full min-w-0 items-center gap-2 rounded-full px-3.5 text-left transition hover:bg-surface-hover"
+                    >
+                      <span className="min-w-0 truncate">
+                        {projectFilter === "all"
+                          ? "Project"
+                          : projectFilter === "none"
+                            ? "No project"
+                            : (selectedProject?.name ?? "Project")}
+                      </span>
+                      <DropdownChevron open={open} />
+                    </button>
+                  )}
+                />
+                {projectFilter !== "all" && (
+                  <button
+                    type="button"
+                    aria-label="Clear project filter"
+                    title="Clear project filter"
+                    onClick={() => setProjectFilter("all")}
+                    className="mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-3 transition hover:bg-surface-muted hover:text-ink"
+                  >
+                    <X size={14} strokeWidth={1.75} />
+                  </button>
+                )}
+              </div>
               {filter === "all" && (
                 <div
                   className={cn(
@@ -487,6 +598,7 @@ export function TeamWorkspace({
                 </div>
               )}
             </div>
+            {scope === "board" && (
             <PillTabs
               className="[&>button]:h-10"
               label="View"
@@ -501,7 +613,19 @@ export function TeamWorkspace({
                 { value: "list", label: "List", icon: <List size={15} /> },
               ]}
             />
+            )}
           </div>
+          <PillTabs
+            className="[&>button]:h-10"
+            label="Team board scope"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: "board", label: "Board" },
+              { value: "awaiting", label: `Awaiting delivery (${awaitingCount})` },
+              { value: "overdue", label: `Overdue (${overdueCount})` },
+            ]}
+          />
           {showHint && (
             <InfoBanner
               title="A little different from your daily board."
@@ -524,14 +648,15 @@ export function TeamWorkspace({
                 </IconButton>
               }
             >
-              Team tasks stay until someone removes them. Completed tasks move
-              to History after 24 hours.
+              Team tasks stay until someone removes them. Done tasks stay on the
+              board until you mark them delivered; delivered tasks move to
+              History after 24 hours.
             </InfoBanner>
           )}
           {visible.length ? (
             <TaskBoard
               tasks={boardTasks}
-              view={view ?? (wide ? "board" : "list")}
+              view={scope === "board" ? (view ?? (wide ? "board" : "list")) : "list"}
               seqById={seq}
               onOpen={openTask}
               onDelete={removeTask}
@@ -541,13 +666,19 @@ export function TeamWorkspace({
           ) : (
             <div className="grid place-items-center rounded-panel bg-surface px-6 py-16 text-center shadow-sm2">
               <p className="text-sm text-ink-2">
-                {filter === "mine"
-                  ? "Nothing is assigned to you in this team."
-                  : selectedMember
-                    ? "No tasks are assigned to this member."
-                    : "No tasks yet. Add the first one."}
+                {scope === "awaiting"
+                  ? "Nothing is waiting to be delivered."
+                  : scope === "overdue"
+                    ? "Nothing is overdue."
+                    : filter === "mine"
+                      ? "Nothing is assigned to you in this team."
+                      : projectFilter !== "all"
+                        ? "No tasks match this project."
+                        : selectedMember
+                          ? "No tasks are assigned to this member."
+                          : "No tasks yet. Add the first one."}
               </p>
-              {filter === "all" && !selectedMember && (
+              {scope === "board" && filter === "all" && !selectedMember && (
                 <Button
                   plus
                   className="mt-5"
@@ -604,14 +735,20 @@ export function TeamWorkspace({
                     </h2>
                     <p className="mt-1 text-xs text-ink-2">
                       {personName(history.data?.people ?? [], task.assigneeId)}
+                      {projectLabel(task.projectId)
+                        ? ` · ${projectLabel(task.projectId)}`
+                        : ""}
                     </p>
                     <p className="mt-1 break-words text-xs text-ink-3">
                       {task.removedAt
                         ? `Removed by ${personName(history.data?.people ?? [], task.removedBy)}`
-                        : `Completed by ${personName(history.data?.people ?? [], task.completedBy)}`}{" "}
+                        : `Delivered by ${personName(history.data?.people ?? [], task.deliveredBy ?? task.completedBy)}`}{" "}
                       ·{" "}
                       {formatDhaka(
-                        task.removedAt ?? task.completedAt ?? task.updatedAt,
+                        task.removedAt ??
+                          task.deliveredAt ??
+                          task.completedAt ??
+                          task.updatedAt,
                         "D MMM YYYY · h:mm A",
                       )}
                     </p>
@@ -637,7 +774,7 @@ export function TeamWorkspace({
                     ? "No tasks match your search."
                     : kind === "removed"
                       ? "No removed tasks."
-                      : "Completed tasks appear here after 24 hours."}
+                      : "Delivered tasks appear here 24 hours after delivery."}
                 </p>
               )}
             </div>
@@ -674,12 +811,20 @@ export function TeamWorkspace({
           }}
         />
       )}
+      {showProjects && (
+        <ProjectsDialog
+          team={team}
+          disabled={disabled}
+          onClose={() => setShowProjects(false)}
+        />
+      )}
       {editor && (
         <TeamTaskEditor
           key={`${teamId}:${editor.task?.id ?? `new:${editor.status}`}`}
           team={team}
           task={editor.task}
           defaultStatus={editor.status}
+          defaultProject={editor.project ?? null}
           initialChat={editor.chat}
           disabled={disabled}
           onClose={() => setEditor(null)}

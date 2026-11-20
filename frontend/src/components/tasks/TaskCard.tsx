@@ -10,7 +10,17 @@ import { GradientPill } from "../ui/GradientPill";
 import { StatusChip } from "../ui/StatusChip";
 import { Avatar } from "../ui/Avatar";
 
-export interface TeamCardMeta { assignee: string | null; estimatedDays: number | null; overdue: boolean; messageCount: number; unread: boolean }
+export interface TeamCardMeta {
+  assignee: string | null;
+  project: string | null;
+  /** Pill text such as "Due 14 Nov", "Overdue · 12 Nov" or "Delivered 12 Nov". */
+  deliveryLabel: string;
+  overdue: boolean;
+  delivered: boolean;
+  messageCount: number;
+  unread: boolean;
+  onDeliver?: () => void;
+}
 
 /** One-tap status transition shown on every card: Start → Complete → Reopen. */
 export const QUICK_ACTION: Record<TaskStatus, { label: string; next: TaskStatus; className: string }> = {
@@ -119,9 +129,9 @@ function TaskCardImpl(
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-        <GradientPill className={cn((teamMeta ? !teamMeta.estimatedDays : task.estimatedMinutes === 0) && "text-ink-3", teamMeta?.overdue && "text-red-700 dark:text-red-300")}>
+        <GradientPill className={cn((teamMeta ? teamMeta.deliveryLabel === "No delivery date" : task.estimatedMinutes === 0) && "text-ink-3", teamMeta?.overdue && "text-red-700 dark:text-red-300", teamMeta?.delivered && "text-st-c-fg")}>
           <Clock size={13} strokeWidth={1.75} />
-          {teamMeta ? <span>{teamMeta.estimatedDays ? `${teamMeta.estimatedDays}d${teamMeta.overdue ? " · overdue" : ""}` : "No estimate"}</span> : task.estimatedMinutes === 0 ? "No estimate" : <strong className="font-semibold text-ink">{formatMinutes(task.estimatedMinutes)}</strong>}
+          {teamMeta ? <span>{teamMeta.deliveryLabel}</span> : task.estimatedMinutes === 0 ? "No estimate" : <strong className="font-semibold text-ink">{formatMinutes(task.estimatedMinutes)}</strong>}
         </GradientPill>
         {!overlay && (
           <span className="ml-auto flex items-center gap-2">
@@ -144,6 +154,10 @@ function TaskCardImpl(
           </span>
         )}
       </div>
+      {teamMeta && (teamMeta.project || teamMeta.onDeliver) && <div className="mt-3 flex min-w-0 items-center justify-between gap-2 text-xs text-ink-2">
+        <span className="min-w-0 truncate rounded-full bg-surface-muted px-2.5 py-1 font-medium" title={teamMeta.project ?? undefined}>{teamMeta.project ?? ""}</span>
+        {teamMeta.onDeliver && !disabled && <button type="button" onClick={teamMeta.onDeliver} aria-label={`Mark delivered: ${task.title}`} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-st-c-bg px-3 font-semibold text-st-c-fg transition hover:brightness-95 active:scale-95 [@media(hover:none)]:h-11"><Check size={14} strokeWidth={2.25} />Mark delivered</button>}
+      </div>}
       {teamMeta && <div className="mt-3 flex min-w-0 items-center justify-between gap-2 text-xs text-ink-2">
         <button type="button" onClick={() => (onChat ?? onEdit)?.(task)} aria-label={`Open chat for ${task.title}: ${teamMeta.messageCount} messages${teamMeta.unread ? ", unread" : ""}`} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-1 hover:text-ink">
           <MessageCircle size={14} />{teamMeta.messageCount}{teamMeta.unread && <span className="h-1.5 w-1.5 rounded-full bg-accent-blue" aria-hidden />}

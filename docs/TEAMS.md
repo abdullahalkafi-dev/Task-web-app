@@ -20,28 +20,72 @@ and bypass the service worker cache. The mounted team's in-memory data is cleare
 on the next denied request/live refresh. Previously viewed or downloaded content
 cannot be erased remotely from a person's device.
 
-## Tasks, history and communication
+## Projects (clients)
 
-Team tasks have three states: **To do**, **In progress**, **Done**. They do not
-reset at midnight. Assign one current member or leave a task unassigned. The
+A team can have any number of **projects**; a project represents one client. Projects
+are optional: a task has one project or none, and a team works fine with no projects.
+When creating a team you may name a first project; any active member can add,
+rename, archive or restore projects later from **Projects** in the team header.
+Names are unique per team (case-insensitive) among active projects.
+
+Archiving a project hides it from the project picker but keeps its tasks, their
+project label and History unchanged. New tasks cannot be put in an archived project;
+restoring it makes it selectable again. Team deletion removes projects with the team.
+
+## Tasks, delivery and history
+
+Team tasks have three work states: **To do**, **In progress**, **Done**. They do
+not reset at midnight. Assign one current member or leave a task unassigned. The
 creator is recorded automatically and never changes.
 
-Estimates are whole days. Due day is the Bangladesh calendar day of `startedAt`
-plus `estimatedDays`; overdue begins after that entire due day passes. Starting
-records `startedAt`. Completing/reopening preserve that start; moving to To do
-clears it, and the next start records a fresh time.
+Finishing work and handing it to the client are different events, so **delivery is
+tracked separately from status**. Each task has:
 
-Done tasks remain on the board for 24 hours. Hourly maintenance and lazy
-board/history reads archive completed tasks. History has Completed and Removed
-tabs, title search and pages of 50. Any member can restore a historical task to
-To do. Removing a task retains its chat and records who removed it.
+| Field | Meaning | Set by |
+| --- | --- | --- |
+| Project | Optional client project | Member |
+| Client given date | Day the client gave us this work (date only, optional; the editor defaults it to today) | Member |
+| Planned delivery date | Day promised to the client (date only, optional) | Member |
+| Created at | When entered in the app | Automatic |
+| Started at | First move to In progress | Automatic |
+| Done at | Move to Done | Automatic |
+| Status changed at | Latest status change | Automatic |
+| Delivered at / by | When and who handed it to the client | **Mark delivered** |
 
-Task details show creator/start/due dates in Asia/Dhaka. Chat and the append-only
+Date-only fields are Bangladesh (Asia/Dhaka) calendar days stored as `YYYY-MM-DD`.
+Planned delivery cannot be before the client given date. The old day estimate and
+its due-day arithmetic are removed.
+
+Example: a client gives six changes on 10 Nov (client date 10 Nov for all). Planned
+delivery is 12 Nov for two, 14 Nov for two and 16 Nov for two. All six are finished
+and marked Done on 11 Nov: they show **Awaiting delivery**, not delivered. On 12 Nov
+the first two are marked delivered. A new change received on 13 Nov is a new task
+with client date 13 Nov and its own planned delivery date.
+
+**Mark delivered** is only available for Done tasks and records the time and person.
+**Undo delivered** clears them. Moving a task out of Done, or restoring it from
+History, also clears delivery. A task is **overdue** when it has a planned delivery
+date earlier than today (Asia/Dhaka) and is not delivered, regardless of its work
+status; with no planned date it is never overdue. Starting records `startedAt`;
+completing/reopening preserve it; moving to To do clears it.
+
+A Done task stays on the board until it is delivered; 24 hours after delivery it
+moves to History. Undelivered Done tasks are never auto-archived. Hourly maintenance
+and lazy board/history reads archive delivered tasks. History has Completed
+(delivered) and Removed tabs, title search and pages of 50. Any member can restore a
+historical task to To do. Removing a task retains its chat and records who removed it.
+
+Task details show creator, client, start, done, planned and delivered dates in Asia/Dhaka. Chat and the append-only
 timeline are collapsed by default. Chat accepts text/team images, pages of 50,
-and a per-user read position. Cards add only assignee, day estimate and message
+and a per-user read position. Cards add assignee, project, planned delivery/overdue and delivered labels and the message
 count/unread dot to the existing controls.
 
 ## Team header and filters
+
+A **Project** selector (All projects / each active project / No project) sits beside
+the assignee filter. Next to the Board and List views are **Awaiting delivery**
+(Done, not delivered, ordered by planned date) and **Overdue** views, both honoring
+the project and assignee filters, plus History.
 
 The team header uses a quiet Teams breadcrumb above the heading. The team-name
 switcher appears only when there is more than one team. Team switching and the

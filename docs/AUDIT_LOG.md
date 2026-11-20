@@ -473,6 +473,16 @@ database indexes present. API was healthy and web running at the expected revisi
 No production accounts or task/note documents were created for verification.
 This follow-up documentation commit does not require another application build.
 
+## 2026-11-21 — Team projects, client dates and delivery tracking (web/backend)
+
+Request: make Teams usable for client work. Decisions (user-confirmed): a project represents a client and is optional per task; a team may have many projects and an optional first project at creation; archiving a project keeps its tasks/labels in History; planned delivery date is optional; client dates and planned dates are Dhaka calendar days.
+
+Behavior and compatibility: delivery is tracked separately from work status (`deliveredAt/By`, Mark/Undo delivered, only for Done tasks; leaving Done or restoring clears it). The day estimate and due-day logic were replaced by `plannedDeliveryDate`; overdue means planned date passed and not delivered. Done tasks are no longer archived 24h after completion: they stay on the board until delivered, then archive 24h after delivery. New board scopes (Board, Awaiting delivery, Overdue) and a project filter were added. New `teamprojects` collection; new task fields are additive and `estimatedDays` is ignored on older documents, so no migration or data clearing. Personal tasks, notes, sync, desktop and Android contracts are unchanged.
+
+Independently verified locally: backend typecheck/lint/63 tests (new tests for projects, delivery, dates and archive rule), frontend typecheck/lint/47 unit tests, root `npm run check` (backend, frontend, desktop, mobile), and the full Playwright suite of 22 tests including the updated team flow, a new projects/delivery/overdue/filter flow and the layout/axe scan. E2E ran with the API on port 4010 because port 4000 was occupied by another local project. Not run: manual desktop/Android interaction, production-scale data. No user feedback is recorded for this change yet.
+
+Deployment evidence is recorded in a follow-up entry.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

@@ -7,6 +7,15 @@ export interface ITeam {
   updatedAt: Date;
   deletedAt: Date | null;
 }
+export interface ITeamProject {
+  _id: string;
+  teamId: string;
+  name: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  archivedAt: Date | null;
+}
 export interface ITeamMember {
   _id: string;
   teamId: string;
@@ -35,10 +44,15 @@ export interface ITeamTask {
   orderIndex: number;
   createdBy: string;
   assigneeId: string | null;
-  estimatedDays: number | null;
+  projectId: string | null;
+  clientDate: string | null;
+  plannedDeliveryDate: string | null;
   startedAt: Date | null;
   completedAt: Date | null;
   completedBy: string | null;
+  statusChangedAt: Date;
+  deliveredAt: Date | null;
+  deliveredBy: string | null;
   archivedAt: Date | null;
   removedAt: Date | null;
   removedBy: string | null;

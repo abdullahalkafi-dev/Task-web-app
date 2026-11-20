@@ -30,7 +30,7 @@ const noStore: RequestHandler = (_req, res, next) => {
 export const teamRouter = Router();
 teamRouter.use(noStore);
 teamRouter.use(authenticate);
-for (const name of ["id", "taskId", "userId", "inviteId"])
+for (const name of ["id", "taskId", "userId", "inviteId", "projectId"])
   teamRouter.param(name, (_req, _res, next, value: string) => {
     const result = z.uuid().safeParse(value);
     next(result.success ? undefined : result.error);
@@ -42,6 +42,8 @@ teamRouter.post("/invites/:id/accept", c.accept);
 teamRouter.post("/invites/:id/decline", c.decline);
 teamRouter.get("/:id", c.detail);
 teamRouter.delete("/:id", c.remove);
+teamRouter.post("/:id/projects", limit(30), c.createProject);
+teamRouter.patch("/:id/projects/:projectId", limit(60), c.patchProject);
 teamRouter.post("/:id/invites", limit(5), c.invite);
 teamRouter.delete("/:id/invites/:inviteId", c.cancelInvite);
 teamRouter.post("/:id/leave", c.leave);
@@ -53,6 +55,8 @@ teamRouter.get("/:id/tasks/:taskId", c.task);
 teamRouter.patch("/:id/tasks/:taskId", limit(180), c.patchTask);
 teamRouter.delete("/:id/tasks/:taskId", c.removeTask);
 teamRouter.post("/:id/tasks/:taskId/restore", c.restore);
+teamRouter.post("/:id/tasks/:taskId/deliver", limit(120), c.deliver);
+teamRouter.post("/:id/tasks/:taskId/undeliver", limit(120), c.undeliver);
 teamRouter.get("/:id/tasks/:taskId/events", c.events);
 teamRouter.get("/:id/tasks/:taskId/messages", c.messages);
 teamRouter.post("/:id/tasks/:taskId/messages", limit(30), c.sendMessage);

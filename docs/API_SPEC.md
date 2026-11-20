@@ -18,21 +18,25 @@ Creator-only actions are enforced server-side. See [Teams](TEAMS.md).
 | Method / path (prefix `/api/teams`) | Request / response |
 | --- | --- |
 | GET / | `{ teams }` with active members and open-task counts |
-| POST / | `{ name }` → 201 `{ team }` |
+| POST / | `{ name, projectName? }` → 201 `{ team }`; optional first project |
 | GET /invites | `{ invites }` for the signed-in recipient |
 | POST /invites/:id/accept or /decline | `{ ok:true }` |
-| GET /:id | `{ team }`, includes members, pending invites and historical people for attribution |
+| GET /:id | `{ team }`, includes members, pending invites, projects (active and archived) and historical people for attribution |
+| POST /:id/projects | `{ name }` → 201 `{ project }`; unique among active projects |
+| PATCH /:id/projects/:projectId | `{ name?, archived? }` → `{ project }`; archiving keeps tasks and labels |
 | DELETE /:id | Exact `{ name }` → `{ ok:true }`; creator only |
 | POST /:id/invites | `{ email }` exact existing account → 201 `{ invite }` |
 | DELETE /:id/invites/:inviteId | `{ ok:true }` |
 | POST /:id/leave | `{ ok:true }`; creator cannot leave |
 | DELETE /:id/members/:userId | `{ ok:true }`; creator only |
-| GET /:id/tasks | `{ tasks }`; lazily archives Done tasks older than 24h |
-| POST /:id/tasks | `{ title,descriptionHtml,status,assigneeId,estimatedDays }` → 201 `{ task }` |
+| GET /:id/tasks | `{ tasks }`; lazily archives tasks delivered more than 24h ago |
+| POST /:id/tasks | `{ title,descriptionHtml,status,assigneeId,projectId?,clientDate?,plannedDeliveryDate? }` → 201 `{ task }` |
 | GET /:id/tasks/:taskId | `{ task }`, includes historical tasks |
 | PATCH /:id/tasks/:taskId | `{ version,...editableFields,orderIndex? }` → `{ task }` |
 | DELETE /:id/tasks/:taskId | `{ version }` → `{ ok:true }`; soft removal |
-| POST /:id/tasks/:taskId/restore | `{ version }` → `{ task }`; returns to To do |
+| POST /:id/tasks/:taskId/restore | `{ version }` → `{ task }`; returns to To do, clears delivery |
+| POST /:id/tasks/:taskId/deliver | `{ version }` → `{ task }`; Done tasks only (else 409 `TASK_NOT_DONE`) |
+| POST /:id/tasks/:taskId/undeliver | `{ version }` → `{ task }` |
 | GET /:id/history | `?kind=completed|removed&q=title&page=0` → `{ tasks,people,hasMore }`, 50/page |
 | GET /:id/tasks/:taskId/events | `{ events,people }` |
 | GET /:id/tasks/:taskId/messages | `?before=messageUuid` → `{ messages,people,hasMore }`, last 50 chronologically |
@@ -40,8 +44,10 @@ Creator-only actions are enforced server-side. See [Teams](TEAMS.md).
 | POST /:id/tasks/:taskId/read | `{ messageId }` → `{ ok:true }`; monotonically advances to that message's server time |
 | POST /:id/uploads | Multipart file → 201 `{ url,width,height }` |
 
-TeamStatus is todo/in_progress/completed. estimatedDays is null or a positive
-integer; assigneeId is null or an active member. Identity, attribution and server
+TeamStatus is todo/in_progress/completed. assigneeId is null or an active member;
+projectId is null or an active project of the team; clientDate/plannedDeliveryDate are
+null or valid `YYYY-MM-DD` Dhaka days with planned not before client. Tasks expose
+deliveredAt/deliveredBy/statusChangedAt (server-set only). Identity, attribution and server
 timestamps cannot be supplied by clients. Tasks include version, messageCount,
 and per-user unread. Stale edits/removals/restores return 409
 `{ error:{code:"TASK_CONFLICT",message},details:{task:latestTask} }`.

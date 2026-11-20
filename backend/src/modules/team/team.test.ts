@@ -21,7 +21,8 @@ const input = {
   descriptionHtml: "<p>Shared work</p>",
   status: "todo",
   assigneeId: null,
-  estimatedDays: 3,
+  clientDate: "2026-11-10",
+  plannedDeliveryDate: "2026-11-14",
 };
 async function fixture() {
   const owner = await createSession("owner");
@@ -350,7 +351,7 @@ describe("team tasks, conflicts and history", () => {
     const saved = await TeamTaskModel.findById(task.id).lean();
     expect(saved?.events).toHaveLength(2);
   });
-  it("starts estimates on In progress and resets the start only on To do", async () => {
+  it("starts work on In progress and resets the start only on To do", async () => {
     const { owner, task, base } = await fixture();
     const patch = (version: number, status: string) =>
       request(app)
@@ -374,9 +375,26 @@ describe("team tasks, conflicts and history", () => {
       .patch(`${base}/tasks/${task.id}`)
       .set(bearer(member.token))
       .send({ version: 1, status: "completed" });
+    // Done but undelivered tasks never leave the board.
     await TeamTaskModel.updateOne(
       { _id: task.id },
-      { completedAt: new Date(Date.now() - 86400000 - 1000) },
+      { completedAt: new Date(Date.now() - 5 * 86400000) },
+    );
+    expect(
+      (await request(app).get(`${base}/tasks`).set(bearer(owner.token))).body
+        .tasks,
+    ).toHaveLength(1);
+    expect(
+      (
+        await request(app)
+          .post(`${base}/tasks/${task.id}/deliver`)
+          .set(bearer(member.token))
+          .send({ version: 2 })
+      ).status,
+    ).toBe(200);
+    await TeamTaskModel.updateOne(
+      { _id: task.id },
+      { deliveredAt: new Date(Date.now() - 86400000 - 1000) },
     );
     expect(
       (await request(app).get(`${base}/tasks`).set(bearer(owner.token))).body
@@ -395,6 +413,7 @@ describe("team tasks, conflicts and history", () => {
     expect(restored.status).toBe(200);
     expect(restored.body.task.status).toBe("todo");
     expect(restored.body.task.archivedAt).toBeNull();
+    expect(restored.body.task.deliveredAt).toBeNull();
   });
   it("soft removes, retains chat and timeline, and lets any member restore", async () => {
     const { owner, member, task, base } = await fixture();
@@ -479,6 +498,146 @@ describe("team tasks, conflicts and history", () => {
     }
   });
 });
+describe("projects and delivery tracking", () => {
+  it("creates an optional first project and manages projects without losing task labels", async () => {
+    const { owner, member, outsider, team, base } = await fixture();
+    expect(team.projects).toEqual([]);
+    const withProject = await request(app)
+      .post("/api/teams")
+      .set(bearer(owner.token))
+      .send({ name: "Agency", projectName: "Acme" });
+    expect(withProject.status).toBe(201);
+    expect(withProject.body.team.projects[0].name).toBe("Acme");
+    const created = await request(app)
+      .post(`${base}/projects`)
+      .set(bearer(member.token))
+      .send({ name: "Acme Website" });
+    expect(created.status).toBe(201);
+    const project = created.body.project;
+    expect(
+      (
+        await request(app)
+          .post(`${base}/projects`)
+          .set(bearer(owner.token))
+          .send({ name: "acme website" })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(app)
+          .post(`${base}/projects`)
+          .set(bearer(outsider.token))
+          .send({ name: "Nope" })
+      ).status,
+    ).toBe(403);
+    const task = (
+      await request(app)
+        .post(`${base}/tasks`)
+        .set(bearer(owner.token))
+        .send({ ...input, projectId: project.id })
+    ).body.task as TeamTask;
+    expect(task.projectId).toBe(project.id);
+    const archived = await request(app)
+      .patch(`${base}/projects/${project.id}`)
+      .set(bearer(owner.token))
+      .send({ archived: true });
+    expect(archived.body.project.archivedAt).toBeTruthy();
+    expect(
+      (
+        await request(app)
+          .post(`${base}/tasks`)
+          .set(bearer(owner.token))
+          .send({ ...input, projectId: project.id })
+      ).status,
+    ).toBe(400);
+    const still = await request(app)
+      .get(`${base}/tasks/${task.id}`)
+      .set(bearer(owner.token));
+    expect(still.body.task.projectId).toBe(project.id);
+    const detail = await request(app).get(base).set(bearer(owner.token));
+    expect(detail.body.team.projects).toHaveLength(1);
+    expect(
+      (
+        await request(app)
+          .patch(`${base}/projects/${project.id}`)
+          .set(bearer(owner.token))
+          .send({ archived: false })
+      ).body.project.archivedAt,
+    ).toBeNull();
+    // Editing an unchanged archived project label stays allowed; moving to none works.
+    const moved = await request(app)
+      .patch(`${base}/tasks/${task.id}`)
+      .set(bearer(owner.token))
+      .send({ version: task.version, projectId: null });
+    expect(moved.body.task.projectId).toBeNull();
+  });
+  it("tracks delivery separately from Done and clears it when work reopens", async () => {
+    const { owner, member, task, base } = await fixture();
+    expect(task.deliveredAt).toBeNull();
+    expect(task.clientDate).toBe("2026-11-10");
+    expect(task.plannedDeliveryDate).toBe("2026-11-14");
+    const deliver = (version: number) =>
+      request(app)
+        .post(`${base}/tasks/${task.id}/deliver`)
+        .set(bearer(member.token))
+        .send({ version });
+    const early = await deliver(1);
+    expect(early.status).toBe(409);
+    expect(early.body.error.code).toBe("TASK_NOT_DONE");
+    const done = (
+      await request(app)
+        .patch(`${base}/tasks/${task.id}`)
+        .set(bearer(owner.token))
+        .send({ version: 1, status: "completed" })
+    ).body.task as TeamTask;
+    expect(done.completedAt).toBeTruthy();
+    expect(done.deliveredAt).toBeNull();
+    expect(done.statusChangedAt >= task.statusChangedAt).toBe(true);
+    const delivered = (await deliver(done.version)).body.task as TeamTask;
+    expect(delivered.deliveredAt).toBeTruthy();
+    expect(delivered.deliveredBy).toBe(member.user.id);
+    expect(delivered.status).toBe("completed");
+    const undone = (
+      await request(app)
+        .post(`${base}/tasks/${task.id}/undeliver`)
+        .set(bearer(owner.token))
+        .send({ version: delivered.version })
+    ).body.task as TeamTask;
+    expect(undone.deliveredAt).toBeNull();
+    const again = (await deliver(undone.version)).body.task as TeamTask;
+    const reopened = (
+      await request(app)
+        .patch(`${base}/tasks/${task.id}`)
+        .set(bearer(owner.token))
+        .send({ version: again.version, status: "in_progress" })
+    ).body.task as TeamTask;
+    expect(reopened.deliveredAt).toBeNull();
+    expect(reopened.deliveredBy).toBeNull();
+    const events = await request(app)
+      .get(`${base}/tasks/${task.id}/events`)
+      .set(bearer(owner.token));
+    expect(events.body.events.map((e: { type: string }) => e.type)).toEqual(
+      expect.arrayContaining(["delivered", "undelivered"]),
+    );
+    const stale = await deliver(1);
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.code).toBe("TASK_CONFLICT");
+  });
+  it("lets dates be changed and cleared, and rejects planned before client", async () => {
+    const { owner, task, base } = await fixture();
+    const patch = (version: number, body: object) =>
+      request(app)
+        .patch(`${base}/tasks/${task.id}`)
+        .set(bearer(owner.token))
+        .send({ version, ...body });
+    expect((await patch(1, { plannedDeliveryDate: "2026-11-09" })).status).toBe(400);
+    const cleared = (await patch(1, { plannedDeliveryDate: null })).body.task;
+    expect(cleared.plannedDeliveryDate).toBeNull();
+    const moved = (await patch(cleared.version, { clientDate: "2026-11-13", plannedDeliveryDate: "2026-11-15" })).body.task;
+    expect(moved.clientDate).toBe("2026-11-13");
+    expect(moved.plannedDeliveryDate).toBe("2026-11-15");
+  });
+});
 describe("team images and per-task chat", () => {
   it('preserves tables and blocks old-client description flattening', async () => {
     const { owner, base, task } = await fixture();
@@ -501,13 +660,18 @@ describe("team images and per-task chat", () => {
         descriptionHtml: '<p onclick="bad()">Hello<script>bad()</script></p>',
       });
     expect(clean.body.task.descriptionHtml).toBe("<p>Hello</p>");
-    for (const estimatedDays of [0, -1, 1.5])
+    for (const bad of [
+      { clientDate: "2026-02-30" },
+      { clientDate: "10/11/2026" },
+      { plannedDeliveryDate: "2026-11-09" },
+      { projectId: randomUUID() },
+    ])
       expect(
         (
           await request(app)
             .post(`${base}/tasks`)
             .set(bearer(owner.token))
-            .send({ ...input, estimatedDays })
+            .send({ ...input, ...bad })
         ).status,
       ).toBe(400);
     expect(

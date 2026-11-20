@@ -16,7 +16,8 @@ const input = (title: string) => ({
   descriptionHtml: "<p>Details belong in the dialog.</p>",
   status: "todo",
   assigneeId: null,
-  estimatedDays: 3,
+  clientDate: "2026-11-10",
+  plannedDeliveryDate: "2026-11-14",
 });
 async function createTeam(
   request: APIRequestContext,
@@ -66,6 +67,7 @@ test("teams: invite consent, assignment, live chat, conflict recovery, archive, 
   await page.getByRole("link", { name: "Teams", exact: true }).click();
   await page.getByRole("button", { name: "New team" }).click();
   await page.getByLabel("Team name").fill("Product team");
+  await page.getByLabel("First project (optional)").fill("Acme");
   await page.getByRole("button", { name: "Create team" }).click();
   await expect(
     page.getByRole("heading", { name: "Product team" }),
@@ -104,7 +106,9 @@ test("teams: invite consent, assignment, live chat, conflict recovery, archive, 
       .first()
       .click();
     await page.getByLabel("Task title").fill("Ship the team feature");
-    await page.getByLabel("Estimate (days)").fill("3");
+    await page.getByLabel("Project", { exact: true }).selectOption({ label: "Acme" });
+    await page.getByLabel("Client given date").fill("2030-01-10");
+    await page.getByLabel("Planned delivery date").fill("2030-01-15");
     await page.getByRole("button", { name: /^Assigned to/ }).click();
     await page
       .getByRole("combobox", { name: "Search team members" })
@@ -115,7 +119,8 @@ test("teams: invite consent, assignment, live chat, conflict recovery, archive, 
     const card = page
       .getByTestId("task-card")
       .filter({ hasText: "Ship the team feature" });
-    await expect(card).toContainText("3d");
+    await expect(card).toContainText("Due 15 Jan");
+    await expect(card).toContainText("Acme");
     await other.getByRole("tab", { name: "Assigned to me" }).click();
     const otherCard = other
       .getByTestId("task-card")
@@ -173,6 +178,17 @@ test("teams: invite consent, assignment, live chat, conflict recovery, archive, 
     await expect(page.getByTestId("column-completed")).toContainText(
       "My preserved edit",
     );
+    // Done is not delivered: the task waits on the board until it is marked delivered.
+    await expect(
+      page.getByRole("tab", { name: "Awaiting delivery (1)" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Mark delivered: My preserved edit" })
+      .click();
+    await expect(
+      page.getByRole("tab", { name: "Awaiting delivery (0)" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("task-card")).toContainText("Delivered");
     // Age only the throwaway test task so lazy archive runs through the real endpoint/UI.
     const require = createRequire(path.resolve("../backend/package.json"));
     const mongoose = require("mongoose") as {
@@ -197,7 +213,7 @@ test("teams: invite consent, assignment, live chat, conflict recovery, archive, 
         .collection("teamtasks")
         .updateOne(
           { _id: task.id },
-          { $set: { completedAt: new Date(Date.now() - 86401000) } },
+          { $set: { deliveredAt: new Date(Date.now() - 86401000) } },
         );
     } finally {
       await connection.close();
@@ -429,4 +445,90 @@ test("team layout: responsive, both themes, keyboard picker/menu, history, offli
   ).toBeVisible();
   await page.getByRole("link", { name: "Back to teams", exact: true }).click();
   await expect(page).toHaveURL(/\/teams$/);
+});
+
+test("team projects: client dates, awaiting delivery, overdue and project filtering", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const creds = await createUser(request, "delivery");
+  const session = await apiLogin(request, creds);
+  const team = await createTeam(request, session.token, "Agency");
+  const base = `/api/teams/${team.id}`;
+  const project = async (name: string) =>
+    (
+      await (
+        await request.post(`${base}/projects`, {
+          headers: auth(session.token),
+          data: { name },
+        })
+      ).json()
+    ).project as { id: string };
+  const acme = await project("Acme");
+  const beta = await project("Beta");
+  const make = async (title: string, extra: Record<string, unknown>) => {
+    const response = await request.post(`${base}/tasks`, {
+      headers: auth(session.token),
+      data: { ...input(title), ...extra },
+    });
+    expect(response.ok()).toBeTruthy();
+  };
+  // Finished on the first day, but the client has not received them yet.
+  await make("Acme change one", {
+    projectId: acme.id,
+    status: "completed",
+    clientDate: "2026-11-10",
+    plannedDeliveryDate: "2026-11-12",
+  });
+  await make("Acme change two", {
+    projectId: acme.id,
+    status: "completed",
+    clientDate: "2026-11-10",
+    plannedDeliveryDate: "2099-01-01",
+  });
+  await make("Beta request", {
+    projectId: beta.id,
+    status: "completed",
+    clientDate: "2026-11-10",
+    plannedDeliveryDate: null,
+  });
+  await make("Unplanned work", {
+    projectId: null,
+    status: "todo",
+    clientDate: "2026-11-13",
+    plannedDeliveryDate: null,
+  });
+  await uiLogin(page, creds);
+  await page.goto(`/teams/${team.id}`);
+  await expect(page.getByRole("tab", { name: "Awaiting delivery (3)" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Overdue (1)" })).toBeVisible();
+  await page.getByRole("tab", { name: "Overdue (1)" }).click();
+  await expect(page.getByTestId("task-card")).toHaveCount(1);
+  await expect(page.getByTestId("task-card")).toContainText("Acme change one");
+  await expect(page.getByTestId("task-card")).toContainText("Overdue 12 Nov");
+  await page.getByRole("tab", { name: "Awaiting delivery (3)" }).click();
+  await page
+    .getByRole("button", { name: "Filter by project: All projects", exact: true })
+    .click();
+  await page.getByRole("menuitemradio", { name: "Acme", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Awaiting delivery (2)" })).toBeVisible();
+  await expect(page.getByTestId("task-card")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Mark delivered: Acme change one" })
+    .click();
+  await expect(page.getByRole("tab", { name: "Awaiting delivery (1)" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Overdue (0)" })).toBeVisible();
+  await page.getByRole("button", { name: "Clear project filter" }).click();
+  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  await expect(page.getByTestId("task-card")).toHaveCount(4);
+  await page
+    .getByRole("button", { name: "Team options", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Projects", exact: true }).click();
+  await page.getByLabel("New project").fill("Gamma");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("list", { name: "Active projects" })).toContainText("Gamma");
+  await page.getByRole("button", { name: "Archive Gamma" }).click();
+  await expect(page.getByRole("list", { name: "Archived projects" })).toContainText("Gamma");
 });

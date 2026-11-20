@@ -10,9 +10,28 @@ export const create = catchAsync(async (req, res) => {
     .json({
       team: await service.createTeam(
         req.user.id,
-        schemas.teamNameSchema.parse(req.body).name,
+        schemas.createTeamSchema.parse(req.body),
       ),
     });
+});
+export const createProject = catchAsync(async (req, res) => {
+  res.status(201).json({
+    project: await service.createProject(
+      req.params.id,
+      req.user.id,
+      schemas.projectSchema.parse(req.body).name,
+    ),
+  });
+});
+export const patchProject = catchAsync(async (req, res) => {
+  res.json({
+    project: await service.patchProject(
+      req.params.id,
+      req.user.id,
+      req.params.projectId,
+      schemas.patchProjectSchema.parse(req.body),
+    ),
+  });
 });
 export const detail = catchAsync(async (req, res) => {
   res.json({ team: await service.getTeam(req.params.id, req.user.id) });
@@ -105,6 +124,28 @@ export const restore = catchAsync(async (req, res) => {
       req.user.id,
       req.params.taskId,
       schemas.versionSchema.parse(req.body).version,
+    ),
+  });
+});
+export const deliver = catchAsync(async (req, res) => {
+  res.json({
+    task: await service.setDelivered(
+      req.params.id,
+      req.user.id,
+      req.params.taskId,
+      schemas.versionSchema.parse(req.body).version,
+      true,
+    ),
+  });
+});
+export const undeliver = catchAsync(async (req, res) => {
+  res.json({
+    task: await service.setDelivered(
+      req.params.id,
+      req.user.id,
+      req.params.taskId,
+      schemas.versionSchema.parse(req.body).version,
+      false,
     ),
   });
 });

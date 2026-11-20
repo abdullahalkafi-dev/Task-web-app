@@ -20,28 +20,50 @@ export const toTeamStatus: Record<TaskStatus, TeamStatus> = {
   started: "in_progress",
   completed: "completed",
 };
-export function teamDueDate(
-  startedAt: string | null,
-  estimatedDays: number | null,
-): string | null {
-  return startedAt && estimatedDays
-    ? dayjs(startedAt)
-        .tz("Asia/Dhaka")
-        .startOf("day")
-        .add(estimatedDays, "day")
-        .format("YYYY-MM-DD")
-    : null;
+export function dhakaToday(now = new Date()): string {
+  return dayjs(now).tz("Asia/Dhaka").format("YYYY-MM-DD");
 }
+/** Planned delivery has passed (Dhaka day) and the task is not delivered. */
 export function teamOverdue(
-  task: Pick<TeamTask, "startedAt" | "estimatedDays" | "status">,
+  task: Pick<TeamTask, "plannedDeliveryDate" | "deliveredAt">,
   now = new Date(),
 ): boolean {
-  const due = teamDueDate(task.startedAt, task.estimatedDays);
   return (
-    task.status === "in_progress" &&
-    !!due &&
-    dayjs(now).tz("Asia/Dhaka").format("YYYY-MM-DD") > due
+    !!task.plannedDeliveryDate &&
+    !task.deliveredAt &&
+    dhakaToday(now) > task.plannedDeliveryDate
   );
+}
+/** Work is Done but the client has not received it yet. */
+export function awaitingDelivery(
+  task: Pick<TeamTask, "status" | "deliveredAt">,
+): boolean {
+  return task.status === "completed" && !task.deliveredAt;
+}
+export type TeamScope = "board" | "awaiting" | "overdue";
+export function scopeTasks(
+  tasks: TeamTask[],
+  scope: TeamScope,
+  now = new Date(),
+): TeamTask[] {
+  if (scope === "board") return tasks;
+  const rows =
+    scope === "awaiting"
+      ? tasks.filter(awaitingDelivery)
+      : tasks.filter((t) => teamOverdue(t, now));
+  // Soonest promise first; tasks without a planned date go last.
+  return [...rows].sort((x, y) =>
+    (x.plannedDeliveryDate ?? "9999").localeCompare(
+      y.plannedDeliveryDate ?? "9999",
+    ),
+  );
+}
+export function filterByProject(tasks: TeamTask[], project: string): TeamTask[] {
+  return project === "all"
+    ? tasks
+    : project === "none"
+      ? tasks.filter((t) => !t.projectId)
+      : tasks.filter((t) => t.projectId === project);
 }
 export function filterTeamTasks(
   tasks: TeamTask[],
@@ -51,7 +73,7 @@ export function filterTeamTasks(
     ? tasks
     : tasks.filter((t) => t.assigneeId === assignee);
 }
-export function asBoardTask(task: TeamTask): TaskDoc {
+export function asBoardTask(task: TeamTask, orderIndex = task.orderIndex): TaskDoc {
   return {
     id: task.id,
     userId: task.createdBy,
@@ -59,7 +81,7 @@ export function asBoardTask(task: TeamTask): TaskDoc {
     descriptionHtml: "",
     descriptionText: task.descriptionText,
     status: toPersonalStatus[task.status],
-    orderIndex: task.orderIndex,
+    orderIndex,
     estimatedMinutes: 0,
     taskDate: "",
     copiedFromDate: null,

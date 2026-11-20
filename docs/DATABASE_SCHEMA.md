@@ -15,7 +15,8 @@ Personal schemas and the sync protocol are unchanged. See [Teams](TEAMS.md).
 | teams | UUID, name, creatorId, createdAt, updatedAt, deletedAt |
 | teammembers | teamId, userId, joinedAt, leftAt, removedBy; unique active `(teamId,userId)` partial index; `(userId,leftAt)` |
 | teaminvites | teamId, invitedUserId, invitedBy, pending/accepted/declined/cancelled status, createdAt, respondedAt; unique pending `(teamId,invitedUserId)` partial index; `(invitedUserId,status)` |
-| teamtasks | teamId, title, descriptionHtml/Text, todo/in_progress/completed status, orderIndex, immutable createdBy, nullable assigneeId/estimatedDays/startedAt/completedAt/completedBy/archivedAt/removedAt/removedBy, timestamps, integer version, embedded events; `(teamId,removedAt,archivedAt,orderIndex)`, `(completedAt,archivedAt)` |
+| teamtasks | teamId, title, descriptionHtml/Text, todo/in_progress/completed status, orderIndex, immutable createdBy, nullable assigneeId/projectId/clientDate/plannedDeliveryDate (`YYYY-MM-DD` strings)/startedAt/completedAt/completedBy/deliveredAt/deliveredBy/archivedAt/removedAt/removedBy, statusChangedAt, timestamps, integer version, embedded events; `(teamId,removedAt,archivedAt,orderIndex)`, `(deliveredAt,archivedAt)`, `(teamId,projectId)` |
+| teamprojects | UUID, teamId, name, createdBy, createdAt, updatedAt, nullable archivedAt; `(teamId,archivedAt)` |
 | teammessages | Client UUID for retry deduplication, teamId, taskId, authorId, bodyText, sanitized bodyHtml, createdAt, deletedAt; `(teamId,taskId,createdAt desc,_id desc)` |
 | teamtaskreads | teamId, taskId, userId, lastReadAt; unique `(taskId,userId)` |
 | teamuploads | teamId, filename, createdAt; teamId index; files under `uploads/teams/<teamId>/` |
@@ -26,7 +27,7 @@ increasing server timestamps per task so read watermarks cannot miss messages
 created in the same millisecond. Team queues serialize membership/task writes in
 the current single API process. Deletion first tombstones the team (revoking
 access), then deletes only its records/files. Boot/hourly maintenance retries
-cleanup of tombstoned teams. No destructive migration is required.
+cleanup of tombstoned teams. The `estimatedDays` field was removed from the model and is ignored if present on older documents; the other new fields are additive and read as null/unset on older documents, so no migration or data clearing is needed.
 
 ## users (personal account)
 | Field | Type | Notes |

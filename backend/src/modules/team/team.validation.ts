@@ -2,6 +2,23 @@ import { z } from "zod";
 export const teamNameSchema = z.object({
   name: z.string().trim().min(1).max(100),
 });
+export const createTeamSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  projectName: z.string().trim().min(1).max(100).optional(),
+});
+export const projectSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+});
+export const patchProjectSchema = z
+  .object({ name: z.string().trim().min(1).max(100), archived: z.boolean() })
+  .partial();
+const day = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((v) => {
+    const d = new Date(`${v}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v);
+  }, "Invalid date");
 export const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
 });
@@ -11,7 +28,9 @@ const taskFields = {
   descriptionHtml: z.string().max(2_000_000),
   status: z.enum(["todo", "in_progress", "completed"]),
   assigneeId: z.uuid().nullable(),
-  estimatedDays: z.number().int().min(1).max(36500).nullable(),
+  projectId: z.uuid().nullable().optional(),
+  clientDate: day.nullable().optional(),
+  plannedDeliveryDate: day.nullable().optional(),
 };
 export const createTaskSchema = z.object(taskFields);
 export const patchTaskSchema = z

@@ -20,6 +20,7 @@ export function TeamsHome() {
   const toast = useToast();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const respond = async (id: string, accept: boolean) => {
@@ -171,11 +172,12 @@ export function TeamsHome() {
             setBusy(true);
             setMessage(null);
             void teamsApi
-              .create(name.trim())
+              .create(name.trim(), projectName.trim() || undefined)
               .then(({ team }) => {
                 refreshTeams();
                 setCreating(false);
                 setName("");
+                setProjectName("");
                 router.push(`/teams/${team.id}`);
               })
               .catch((err: unknown) =>
@@ -194,6 +196,14 @@ export function TeamsHome() {
             maxLength={100}
             required
             placeholder="Design team"
+          />
+          <Input
+            label="First project (optional)"
+            hint="A project is usually a client. You can add more later."
+            value={projectName}
+            onChange={(event) => setProjectName(event.target.value)}
+            maxLength={100}
+            placeholder="Acme website"
           />
           <FormError message={message} />
           <div className="flex justify-end gap-2">

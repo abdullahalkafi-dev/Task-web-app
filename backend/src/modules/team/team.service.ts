@@ -9,6 +9,7 @@ import type {
   TeamMember,
   TeamMessage,
   TeamPerson,
+  TeamProject,
   TeamSummary,
   TeamTask,
   TeamTaskEvent,
@@ -20,11 +21,17 @@ import { AppError } from "../../utils/AppError";
 import { assertRichContentCompatible, htmlToPlainText, sanitizeRichHtml } from "../../utils/sanitize";
 import { notifyUser } from "../sync/sync.events";
 import { UserModel } from "../user/user.model";
-import type { ITeam, ITeamInvite, ITeamTask } from "./team.interface";
+import type {
+  ITeam,
+  ITeamInvite,
+  ITeamProject,
+  ITeamTask,
+} from "./team.interface";
 import {
   TeamModel,
   TeamMemberModel,
   TeamInviteModel,
+  TeamProjectModel,
   TeamTaskModel,
   TeamMessageModel,
   TeamTaskReadModel,
@@ -150,20 +157,50 @@ async function inviteDTO(
     createdAt: invite.createdAt.toISOString(),
   };
 }
+function projectDTO(p: ITeamProject): TeamProject {
+  return {
+    id: p._id,
+    teamId: p.teamId,
+    name: p.name,
+    createdBy: p.createdBy,
+    createdAt: p.createdAt.toISOString(),
+    archivedAt: p.archivedAt?.toISOString() ?? null,
+  };
+}
+async function projects(teamId: string): Promise<TeamProject[]> {
+  const rows = await TeamProjectModel.find({ teamId })
+    .sort({ createdAt: 1 })
+    .lean();
+  return rows.map(projectDTO);
+}
+function sameName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
 export async function createTeam(
   userId: string,
-  name: string,
+  input: { name: string; projectName?: string },
 ): Promise<TeamDetail> {
-  const team = await TeamModel.create({ name, creatorId: userId });
+  const team = await TeamModel.create({ name: input.name, creatorId: userId });
   try {
     await TeamMemberModel.create({ teamId: team._id, userId });
+    if (input.projectName)
+      await TeamProjectModel.create({
+        teamId: team._id,
+        name: input.projectName,
+        createdBy: userId,
+      });
   } catch (error) {
-    await TeamModel.deleteOne({ _id: team._id });
+    await Promise.all([
+      TeamModel.deleteOne({ _id: team._id }),
+      TeamMemberModel.deleteMany({ teamId: team._id }),
+      TeamProjectModel.deleteMany({ teamId: team._id }),
+    ]);
     throw error;
   }
   notifyUser(userId);
   return {
     ...(await summary(team.toObject())),
+    projects: await projects(team._id),
     invites: [],
     people: await people([userId]),
   };
@@ -194,6 +231,7 @@ export async function getTeam(
     .lean();
   return {
     ...(await summary(team)),
+    projects: await projects(teamId),
     invites: await Promise.all(invites.map((i) => inviteDTO(i, team))),
     people: await people(allMembers.map((m) => m.userId)),
   };
@@ -423,6 +461,99 @@ export async function deleteTeam(
     recipients.forEach(notifyUser);
   });
 }
+export async function createProject(
+  teamId: string,
+  userId: string,
+  name: string,
+): Promise<TeamProject> {
+  return withMember(teamId, userId, async () => {
+    const active = await TeamProjectModel.find({
+      teamId,
+      archivedAt: null,
+    }).lean();
+    if (active.some((p) => sameName(p.name, name)))
+      throw new AppError(
+        409,
+        "PROJECT_EXISTS",
+        "A project with this name already exists.",
+      );
+    const project = await TeamProjectModel.create({
+      teamId,
+      name,
+      createdBy: userId,
+    });
+    await notifyTeam(teamId);
+    return projectDTO(project.toObject());
+  });
+}
+export async function patchProject(
+  teamId: string,
+  userId: string,
+  projectId: string,
+  input: { name?: string; archived?: boolean },
+): Promise<TeamProject> {
+  return withMember(teamId, userId, async () => {
+    const project = await TeamProjectModel.findOne({
+      _id: projectId,
+      teamId,
+    }).lean();
+    if (!project) throw new AppError(404, "NOT_FOUND", "Project not found.");
+    const changes: Partial<ITeamProject> = { updatedAt: new Date() };
+    const archivedAfter =
+      input.archived === undefined ? !!project.archivedAt : input.archived;
+    const nameAfter = input.name ?? project.name;
+    if (input.name !== undefined) changes.name = input.name;
+    if (input.archived !== undefined)
+      changes.archivedAt = input.archived
+        ? (project.archivedAt ?? new Date())
+        : null;
+    if (!archivedAfter) {
+      const others = await TeamProjectModel.find({
+        teamId,
+        archivedAt: null,
+        _id: { $ne: projectId },
+      }).lean();
+      if (others.some((p) => sameName(p.name, nameAfter)))
+        throw new AppError(
+          409,
+          "PROJECT_EXISTS",
+          "A project with this name already exists.",
+        );
+    }
+    const saved = await TeamProjectModel.findOneAndUpdate(
+      { _id: projectId, teamId },
+      { $set: changes },
+      { returnDocument: "after" },
+    ).lean();
+    await notifyTeam(teamId);
+    return projectDTO(saved!);
+  });
+}
+async function checkProject(
+  teamId: string,
+  projectId: string | null | undefined,
+  current: string | null = null,
+): Promise<void> {
+  if (!projectId || projectId === current) return;
+  const project = await TeamProjectModel.findOne({
+    _id: projectId,
+    teamId,
+  }).lean();
+  if (!project || project.archivedAt)
+    throw new AppError(
+      400,
+      "INVALID_PROJECT",
+      "Choose an active project of this team.",
+    );
+}
+function checkDates(client: string | null, planned: string | null): void {
+  if (client && planned && planned < client)
+    throw new AppError(
+      400,
+      "INVALID_DATES",
+      "Planned delivery cannot be before the client date.",
+    );
+}
 async function cleanupTeam(teamId: string): Promise<void> {
   const directory = teamDirectory(teamId);
   const root = path.resolve(config.UPLOAD_ROOT, "teams");
@@ -431,6 +562,7 @@ async function cleanupTeam(teamId: string): Promise<void> {
   await fs.rm(directory, { recursive: true, force: true });
   await Promise.all([
     TeamTaskModel.deleteMany({ teamId }),
+    TeamProjectModel.deleteMany({ teamId }),
     TeamMessageModel.deleteMany({ teamId }),
     TeamTaskReadModel.deleteMany({ teamId }),
     TeamUploadModel.deleteMany({ teamId }),
@@ -518,10 +650,15 @@ async function taskDTOs(
       orderIndex: t.orderIndex,
       createdBy: t.createdBy,
       assigneeId: t.assigneeId,
-      estimatedDays: t.estimatedDays,
+      projectId: t.projectId ?? null,
+      clientDate: t.clientDate ?? null,
+      plannedDeliveryDate: t.plannedDeliveryDate ?? null,
       startedAt: t.startedAt?.toISOString() ?? null,
       completedAt: t.completedAt?.toISOString() ?? null,
       completedBy: t.completedBy,
+      statusChangedAt: (t.statusChangedAt ?? t.createdAt).toISOString(),
+      deliveredAt: t.deliveredAt?.toISOString() ?? null,
+      deliveredBy: t.deliveredBy ?? null,
       archivedAt: t.archivedAt?.toISOString() ?? null,
       removedAt: t.removedAt?.toISOString() ?? null,
       removedBy: t.removedBy,
@@ -541,7 +678,7 @@ export async function archiveTeam(teamId: string): Promise<void> {
       status: "completed",
       removedAt: null,
       archivedAt: null,
-      completedAt: { $lte: new Date(now.getTime() - 86400000) },
+      deliveredAt: { $ne: null, $lte: new Date(now.getTime() - 86400000) },
     },
     {
       $set: { archivedAt: now, updatedAt: now },
@@ -588,6 +725,8 @@ export async function createTask(
 ): Promise<TeamTask> {
   return withMember(teamId, userId, async () => {
     await checkAssignee(teamId, input.assigneeId);
+    await checkProject(teamId, input.projectId);
+    checkDates(input.clientDate ?? null, input.plannedDeliveryDate ?? null);
     const html = cleanHtml(teamId, input.descriptionHtml);
     const last = await TeamTaskModel.findOne({
       teamId,
@@ -599,6 +738,10 @@ export async function createTask(
     const now = new Date();
     const task = await TeamTaskModel.create({
       ...input,
+      projectId: input.projectId ?? null,
+      clientDate: input.clientDate ?? null,
+      plannedDeliveryDate: input.plannedDeliveryDate ?? null,
+      statusChangedAt: now,
       teamId,
       createdBy: userId,
       descriptionHtml: html,
@@ -649,6 +792,15 @@ export async function patchTask(
         "This task is in History. Restore it before editing.",
       );
     await checkAssignee(teamId, input.assigneeId);
+    await checkProject(teamId, input.projectId, task.projectId ?? null);
+    checkDates(
+      input.clientDate !== undefined
+        ? input.clientDate
+        : (task.clientDate ?? null),
+      input.plannedDeliveryDate !== undefined
+        ? input.plannedDeliveryDate
+        : (task.plannedDeliveryDate ?? null),
+    );
     const changes: Partial<ITeamTask> = { updatedAt: new Date() };
     const events: TeamTaskEvent[] = [];
     if (input.title !== undefined) changes.title = input.title;
@@ -657,8 +809,10 @@ export async function patchTask(
       assertRichContentCompatible(task.descriptionHtml, changes.descriptionHtml, supportsTables);
       changes.descriptionText = htmlToPlainText(changes.descriptionHtml);
     }
-    if (input.estimatedDays !== undefined)
-      changes.estimatedDays = input.estimatedDays;
+    if (input.projectId !== undefined) changes.projectId = input.projectId;
+    if (input.clientDate !== undefined) changes.clientDate = input.clientDate;
+    if (input.plannedDeliveryDate !== undefined)
+      changes.plannedDeliveryDate = input.plannedDeliveryDate;
     if (input.orderIndex !== undefined) changes.orderIndex = input.orderIndex;
     if (
       input.assigneeId !== undefined &&
@@ -677,14 +831,24 @@ export async function patchTask(
             : task.startedAt;
       changes.completedAt = input.status === "completed" ? new Date() : null;
       changes.completedBy = input.status === "completed" ? userId : null;
+      changes.statusChangedAt = new Date();
+      if (task.deliveredAt) {
+        changes.deliveredAt = null;
+        changes.deliveredBy = null;
+        events.push(event(userId, "undelivered"));
+      }
       events.push(event(userId, "status_changed", task.status, input.status));
     }
     if (
       (changes.title !== undefined && changes.title !== task.title) ||
       (changes.descriptionHtml !== undefined &&
         changes.descriptionHtml !== task.descriptionHtml) ||
-      (changes.estimatedDays !== undefined &&
-        changes.estimatedDays !== task.estimatedDays)
+      (changes.projectId !== undefined &&
+        changes.projectId !== (task.projectId ?? null)) ||
+      (changes.clientDate !== undefined &&
+        changes.clientDate !== (task.clientDate ?? null)) ||
+      (changes.plannedDeliveryDate !== undefined &&
+        changes.plannedDeliveryDate !== (task.plannedDeliveryDate ?? null))
     )
       events.push(event(userId, "edited"));
     if (!events.length && changes.orderIndex === undefined)
@@ -746,11 +910,59 @@ export async function restoreTask(
           completedAt: null,
           completedBy: null,
           startedAt: null,
+          deliveredAt: null,
+          deliveredBy: null,
           status: "todo",
+          statusChangedAt: new Date(),
           updatedAt: new Date(),
         },
         $inc: { version: 1 },
         $push: { events: event(userId, "restored") },
+      },
+      { returnDocument: "after" },
+    ).lean();
+    if (!saved) throw new TeamConflict(await getTask(teamId, userId, taskId));
+    await notifyTeam(teamId);
+    return (await taskDTOs([saved], userId))[0];
+  });
+}
+export async function setDelivered(
+  teamId: string,
+  userId: string,
+  taskId: string,
+  version: number,
+  delivered: boolean,
+): Promise<TeamTask> {
+  return withMember(teamId, userId, async () => {
+    const task = await taskRecord(teamId, taskId);
+    await checkVersion(task, version, userId);
+    if (task.removedAt || task.archivedAt)
+      throw new AppError(
+        409,
+        "TASK_HISTORY",
+        "This task is in History. Restore it before editing.",
+      );
+    if (delivered && task.status !== "completed")
+      throw new AppError(
+        409,
+        "TASK_NOT_DONE",
+        "Mark the task Done before delivering it.",
+      );
+    if (!!task.deliveredAt === delivered)
+      return (await taskDTOs([task], userId))[0];
+    const now = new Date();
+    const saved = await TeamTaskModel.findOneAndUpdate(
+      { _id: taskId, teamId, version },
+      {
+        $set: {
+          deliveredAt: delivered ? now : null,
+          deliveredBy: delivered ? userId : null,
+          updatedAt: now,
+        },
+        $inc: { version: 1 },
+        $push: {
+          events: event(userId, delivered ? "delivered" : "undelivered"),
+        },
       },
       { returnDocument: "after" },
     ).lean();
@@ -798,7 +1010,7 @@ export async function history(
       hasMore: tasks.length > 50,
       people: await people(
         rows.flatMap((t) =>
-          [t.createdBy, t.completedBy, t.removedBy, t.assigneeId].filter(
+          [t.createdBy, t.completedBy, t.deliveredBy, t.removedBy, t.assigneeId].filter(
             (id): id is string => !!id,
           ),
         ),

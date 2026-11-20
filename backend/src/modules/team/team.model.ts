@@ -4,6 +4,7 @@ import type {
   ITeam,
   ITeamInvite,
   ITeamMember,
+  ITeamProject,
   ITeamTask,
   ITeamMessage,
   ITeamTaskRead,
@@ -18,6 +19,16 @@ const teamSchema = new Schema<ITeam>({
   updatedAt: { type: Date, default: Date.now },
   deletedAt: { type: Date, default: null },
 });
+const projectSchema = new Schema<ITeamProject>({
+  _id: id,
+  teamId: { type: String, required: true },
+  name: { type: String, required: true },
+  createdBy: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  archivedAt: { type: Date, default: null },
+});
+projectSchema.index({ teamId: 1, archivedAt: 1 });
 const memberSchema = new Schema<ITeamMember>({
   _id: id,
   teamId: { type: String, required: true },
@@ -74,10 +85,15 @@ const taskSchema = new Schema<ITeamTask>({
   orderIndex: { type: Number, default: 1024 },
   createdBy: { type: String, required: true },
   assigneeId: { type: String, default: null },
-  estimatedDays: { type: Number, default: null },
+  projectId: { type: String, default: null },
+  clientDate: { type: String, default: null },
+  plannedDeliveryDate: { type: String, default: null },
   startedAt: { type: Date, default: null },
   completedAt: { type: Date, default: null },
   completedBy: { type: String, default: null },
+  statusChangedAt: { type: Date, default: Date.now },
+  deliveredAt: { type: Date, default: null },
+  deliveredBy: { type: String, default: null },
   archivedAt: { type: Date, default: null },
   removedAt: { type: Date, default: null },
   removedBy: { type: String, default: null },
@@ -87,7 +103,8 @@ const taskSchema = new Schema<ITeamTask>({
   events: { type: [eventSchema], default: [] },
 });
 taskSchema.index({ teamId: 1, removedAt: 1, archivedAt: 1, orderIndex: 1 });
-taskSchema.index({ completedAt: 1, archivedAt: 1 });
+taskSchema.index({ deliveredAt: 1, archivedAt: 1 });
+taskSchema.index({ teamId: 1, projectId: 1 });
 const messageSchema = new Schema<ITeamMessage>({
   _id: id,
   teamId: { type: String, required: true },
@@ -114,6 +131,10 @@ const uploadSchema = new Schema<ITeamUpload>({
   createdAt: { type: Date, default: Date.now },
 });
 export const TeamModel = model<ITeam>("Team", teamSchema);
+export const TeamProjectModel = model<ITeamProject>(
+  "TeamProject",
+  projectSchema,
+);
 export const TeamMemberModel = model<ITeamMember>("TeamMember", memberSchema);
 export const TeamInviteModel = model<ITeamInvite>("TeamInvite", inviteSchema);
 export const TeamTaskModel = model<ITeamTask>("TeamTask", taskSchema);

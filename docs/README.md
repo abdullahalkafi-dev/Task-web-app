@@ -3,7 +3,7 @@
 | Document | Purpose |
 | --- | --- |
 | [Architecture](ARCHITECTURE.md) | Components, ownership, data flow, auth and sync |
-| [Teams guide](TEAMS.md) | Private teams, assignment, day estimates, task chat, history, conflicts and operations |
+| [Teams guide](TEAMS.md) | Private teams, client projects, delivery tracking, assignment, task chat, history, conflicts and operations |
 | [Rich text and paste](RICH_TEXT.md) | Tables, clipboard formats, editing, limits, fallback and older-client protection |
 | [Android guide](ANDROID.md) | Mobile architecture, build/signing, Google setup, permissions, sync and release operations |
 | [Android verification](ANDROID_VERIFICATION.md) | Agreed scope, actual test evidence and outstanding release gates |

@@ -9,13 +9,13 @@ import type {
 import { ApiError } from "@/lib/api";
 import { useTeamResource } from "@/hooks/useTeams";
 import { teamsApi, refreshTeams } from "@/lib/teams-api";
-import { personName, teamDueDate } from "@/lib/team-utils";
+import { dhakaToday, personName } from "@/lib/team-utils";
 import { formatDateKey, formatDhaka } from "@/lib/time";
 import { RichTextEditor } from "../editor/RichTextEditor";
 import { RichContent } from "../editor/RichContent";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
-import { FormError, Input } from "../ui/Field";
+import { FormError, Input, inputClass } from "../ui/Field";
 import { PillTabs } from "../ui/PillTabs";
 import { InfoBanner } from "../ui/InfoBanner";
 import { AssigneePicker } from "./AssigneePicker";
@@ -26,6 +26,7 @@ export function TeamTaskEditor({
   team,
   task,
   defaultStatus = "todo",
+  defaultProject = null,
   initialChat = false,
   disabled,
   onClose,
@@ -35,6 +36,7 @@ export function TeamTaskEditor({
   team: TeamDetail;
   task: TeamTask | null;
   defaultStatus?: TeamStatus;
+  defaultProject?: string | null;
   initialChat?: boolean;
   disabled: boolean;
   onClose: () => void;
@@ -45,9 +47,13 @@ export function TeamTaskEditor({
   const [title, setTitle] = useState(task?.title ?? "");
   const [html, setHtml] = useState(task?.descriptionHtml ?? "");
   const [assignee, setAssignee] = useState(task?.assigneeId ?? null);
-  const [estimate, setEstimate] = useState(
-    task?.estimatedDays?.toString() ?? "",
+  const [projectId, setProjectId] = useState<string | null>(
+    task ? task.projectId : defaultProject,
   );
+  const [clientDate, setClientDate] = useState(
+    task ? (task.clientDate ?? "") : dhakaToday(),
+  );
+  const [planned, setPlanned] = useState(task?.plannedDeliveryDate ?? "");
   const [status, setStatus] = useState<TeamStatus>(
     task?.status ?? defaultStatus,
   );
@@ -65,20 +71,42 @@ export function TeamTaskEditor({
   const current = latest.data?.task ?? task;
   const history = !!(current?.removedAt || current?.archivedAt);
   const readonly = disabled || history || !!latest.error;
-  const due = teamDueDate(
-    current?.startedAt ?? null,
-    estimate ? Number(estimate) : null,
+  const projectName = (id: string | null) =>
+    team.projects.find((p) => p.id === id)?.name ?? null;
+  const projectChoices = team.projects.filter(
+    (p) => !p.archivedAt || p.id === projectId,
   );
+  const when = (iso: string | null | undefined) =>
+    iso ? formatDhaka(iso, "D MMM YYYY · h:mm A") : null;
+  const deliver = async (delivered: boolean) => {
+    if (!current) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { task: next } = await teamsApi.deliver(
+        team.id,
+        current,
+        delivered,
+      );
+      setBase((old) => (old ? { ...old, version: next.version } : next));
+      refreshTeams();
+      onSaved();
+      void latest.reload();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "TASK_CONFLICT")
+        setConflict((err.details as { task: TeamTask }).task);
+      setError(err instanceof Error ? err.message : "Could not update delivery.");
+    } finally {
+      setBusy(false);
+    }
+  };
   const save = async () => {
     if (!title.trim()) {
       setError("Give your task a title.");
       return;
     }
-    if (
-      estimate &&
-      (!Number.isInteger(Number(estimate)) || Number(estimate) < 1)
-    ) {
-      setError("Use a whole number of days, starting at 1.");
+    if (clientDate && planned && planned < clientDate) {
+      setError("Planned delivery cannot be before the client date.");
       return;
     }
     setBusy(true);
@@ -87,7 +115,9 @@ export function TeamTaskEditor({
       title: title.trim(),
       descriptionHtml: html,
       assigneeId: assignee,
-      estimatedDays: estimate ? Number(estimate) : null,
+      projectId,
+      clientDate: clientDate || null,
+      plannedDeliveryDate: planned || null,
       status,
     };
     try {
@@ -147,9 +177,10 @@ export function TeamTaskEditor({
             <p className="text-xs text-ink-2">
               Assigned to {personName(team.members, conflict.assigneeId)} ·{" "}
               {conflict.status.replace("_", " ")} ·{" "}
-              {conflict.estimatedDays
-                ? `${conflict.estimatedDays} days`
-                : "No estimate"}
+              {projectName(conflict.projectId) ?? "No project"} ·{" "}
+              {conflict.plannedDeliveryDate
+                ? `Planned ${formatDateKey(conflict.plannedDeliveryDate, "D MMM YYYY")}`
+                : "No planned delivery"}
             </p>
             <RichContent
               html={conflict.descriptionHtml}
@@ -164,7 +195,9 @@ export function TeamTaskEditor({
                   setTitle(conflict.title);
                   setHtml(conflict.descriptionHtml);
                   setAssignee(conflict.assigneeId);
-                  setEstimate(conflict.estimatedDays?.toString() ?? "");
+                  setProjectId(conflict.projectId);
+                  setClientDate(conflict.clientDate ?? "");
+                  setPlanned(conflict.plannedDeliveryDate ?? "");
                   setStatus(conflict.status);
                   setEditorKey((key) => key + 1);
                   setConflict(null);
@@ -224,18 +257,47 @@ export function TeamTaskEditor({
           onChange={setAssignee}
           disabled={readonly || busy}
         />
+        <div className="space-y-1.5">
+          <label
+            htmlFor="team-task-project"
+            className="block text-[13px] font-medium text-ink-2"
+          >
+            Project
+          </label>
+          <select
+            id="team-task-project"
+            className={inputClass}
+            value={projectId ?? ""}
+            onChange={(event) => setProjectId(event.target.value || null)}
+            disabled={readonly || busy}
+          >
+            <option value="">No project</option>
+            {projectChoices.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+                {project.archivedAt ? " (archived)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Estimate (days)"
-            type="number"
-            min={1}
-            max={36500}
-            step={1}
-            value={estimate}
-            onChange={(event) => setEstimate(event.target.value)}
+            label="Client given date"
+            type="date"
+            value={clientDate}
+            onChange={(event) => setClientDate(event.target.value)}
             disabled={readonly || busy}
-            placeholder="No estimate"
           />
+          <Input
+            label="Planned delivery date"
+            type="date"
+            min={clientDate || undefined}
+            value={planned}
+            onChange={(event) => setPlanned(event.target.value)}
+            disabled={readonly || busy}
+          />
+        </div>
+        <div className="grid gap-4">
           <div>
             <p className="mb-1.5 text-[13px] font-medium text-ink-2">Status</p>
             {readonly ? (
@@ -285,14 +347,59 @@ export function TeamTaskEditor({
                 </dd>
               </div>
               <div>
-                <dt className="inline">Due </dt>
+                <dt className="inline">Client date </dt>
                 <dd className="inline">
-                  {due
-                    ? formatDateKey(due, "D MMM YYYY")
-                    : "Set after starting with an estimate"}
+                  {current?.clientDate
+                    ? formatDateKey(current.clientDate, "D MMM YYYY")
+                    : "Not set"}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline">Planned delivery </dt>
+                <dd className="inline">
+                  {current?.plannedDeliveryDate
+                    ? formatDateKey(current.plannedDeliveryDate, "D MMM YYYY")
+                    : "Not set"}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline">Status changed </dt>
+                <dd className="inline">
+                  {when(current?.statusChangedAt) ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline">Done </dt>
+                <dd className="inline">
+                  {when(current?.completedAt) ?? "Not done"}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline">Delivered </dt>
+                <dd className="inline">
+                  {current?.deliveredAt
+                    ? `${when(current.deliveredAt)} · ${personName(team.people, current.deliveredBy)}`
+                    : "Not delivered"}
                 </dd>
               </div>
             </dl>
+            {current?.status === "completed" && !history && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-input bg-surface-muted px-4 py-3">
+                <p className="text-sm">
+                  {current.deliveredAt
+                    ? "Delivered to the client."
+                    : "Done — waiting to be delivered to the client."}
+                </p>
+                <Button
+                  size="sm"
+                  variant={current.deliveredAt ? "ghost" : "secondary"}
+                  disabled={readonly || busy}
+                  onClick={() => void deliver(!current.deliveredAt)}
+                >
+                  {current.deliveredAt ? "Undo delivered" : "Mark delivered"}
+                </Button>
+              </div>
+            )}
             <div>
               <button
                 type="button"

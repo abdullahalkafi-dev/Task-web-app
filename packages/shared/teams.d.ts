@@ -24,7 +24,16 @@ export interface TeamInvite {
   invitedUser: TeamPerson;
   createdAt: string;
 }
+export interface TeamProject {
+  id: string;
+  teamId: string;
+  name: string;
+  createdBy: string;
+  createdAt: string;
+  archivedAt: string | null;
+}
 export interface TeamDetail extends TeamSummary {
+  projects: TeamProject[];
   invites: TeamInvite[];
   people: TeamPerson[];
 }
@@ -38,10 +47,15 @@ export interface TeamTask {
   orderIndex: number;
   createdBy: string;
   assigneeId: string | null;
-  estimatedDays: number | null;
+  projectId: string | null;
+  clientDate: string | null;
+  plannedDeliveryDate: string | null;
   startedAt: string | null;
   completedAt: string | null;
   completedBy: string | null;
+  statusChangedAt: string;
+  deliveredAt: string | null;
+  deliveredBy: string | null;
   archivedAt: string | null;
   removedAt: string | null;
   removedBy: string | null;
@@ -56,7 +70,9 @@ export interface TeamTaskInput {
   descriptionHtml: string;
   status: TeamStatus;
   assigneeId: string | null;
-  estimatedDays: number | null;
+  projectId?: string | null;
+  clientDate?: string | null;
+  plannedDeliveryDate?: string | null;
 }
 export interface TeamTaskPatch extends Partial<TeamTaskInput> {
   version: number;
@@ -72,7 +88,9 @@ export interface TeamTaskEvent {
     | "edited"
     | "removed"
     | "restored"
-    | "archived";
+    | "archived"
+    | "delivered"
+    | "undelivered";
   from: string | null;
   to: string | null;
   at: string;

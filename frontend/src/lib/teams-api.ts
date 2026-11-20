@@ -5,6 +5,7 @@ import type {
   TeamInvite,
   TeamMessage,
   TeamPerson,
+  TeamProject,
   TeamSummary,
   TeamTask,
   TeamTaskEvent,
@@ -18,8 +19,23 @@ const taskPath = (id: string, taskId: string): string =>
 export const teamsApi = {
   list: () => request<{ teams: TeamSummary[] }>("GET", "/teams"),
   invites: () => request<{ invites: TeamInvite[] }>("GET", "/teams/invites"),
-  create: (name: string) =>
-    request<{ team: TeamDetail }>("POST", "/teams", { name }),
+  create: (name: string, projectName?: string) =>
+    request<{ team: TeamDetail }>("POST", "/teams", {
+      name,
+      ...(projectName ? { projectName } : {}),
+    }),
+  createProject: (id: string, name: string) =>
+    request<{ project: TeamProject }>("POST", `${root(id)}/projects`, { name }),
+  patchProject: (
+    id: string,
+    projectId: string,
+    input: { name?: string; archived?: boolean },
+  ) =>
+    request<{ project: TeamProject }>(
+      "PATCH",
+      `${root(id)}/projects/${encodeURIComponent(projectId)}`,
+      input,
+    ),
   get: (id: string) => request<{ team: TeamDetail }>("GET", root(id)),
   delete: (id: string, name: string) =>
     request<{ ok: true }>("DELETE", root(id), { name }),
@@ -49,6 +65,12 @@ export const teamsApi = {
     request<{ task: TeamTask }>("POST", `${taskPath(id, task.id)}/restore`, {
       version: task.version,
     }),
+  deliver: (id: string, task: TeamTask, delivered = true) =>
+    request<{ task: TeamTask }>(
+      "POST",
+      `${taskPath(id, task.id)}/${delivered ? "deliver" : "undeliver"}`,
+      { version: task.version },
+    ),
   history: (
     id: string,
     kind: "completed" | "removed",
