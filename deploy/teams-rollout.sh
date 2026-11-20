@@ -9,7 +9,10 @@ mkdir -p "$backup_dir"
 git rev-parse HEAD > "$backup_dir/previous-commit.txt"
 docker compose exec -T mongo mongodump --archive --gzip > "$backup_dir/mongo.gz"
 docker compose exec -T dayflow-api tar czf - -C /app/uploads . > "$backup_dir/uploads.tgz"
-cp /opt/projects/silvergym/nginx/conf.d/task-web-app.conf "$backup_dir/task-web-app.conf"
+# The shared proxy moved to /opt/projects/gateway on 2026-11-11; fall back to the older location.
+proxy_conf=/opt/projects/gateway/conf.d/task-web-app.conf
+test -f "$proxy_conf" || proxy_conf=/opt/projects/silvergym/nginx/conf.d/task-web-app.conf
+cp "$proxy_conf" "$backup_dir/task-web-app.conf"
 test -s "$backup_dir/mongo.gz"
 test -s "$backup_dir/uploads.tgz"
 (cd "$backup_dir" && sha256sum mongo.gz uploads.tgz task-web-app.conf previous-commit.txt > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)

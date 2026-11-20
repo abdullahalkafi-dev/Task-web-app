@@ -483,6 +483,14 @@ Independently verified locally: backend typecheck/lint/63 tests (new tests for p
 
 Deployment evidence is recorded in a follow-up entry.
 
+### Team projects and delivery deployment evidence
+
+Application commit `504e24f31d9ff94cd6314cf9fa8a7b7577df0405` was pushed to main and deployed. Previous server checkout: `671707090b5b782002b808d6c6eb905aadd137df`. Backup: `/home/deploy/backups/task-web-app/teams-20261120T202724Z` (MongoDB, uploads, previous commit, proxy configuration; SHA-256 verified). Production had 0 team tasks, so no team data needed clearing.
+
+`deploy/teams-rollout.sh` stopped after the MongoDB/uploads backups because the shared proxy configuration had moved from `/opt/projects/silvergym/nginx/conf.d` to `/opt/projects/gateway/conf.d` (2026-11-11). The remaining steps (read-only copy of the proxy config, checksums, `git pull --ff-only`, `deploy/update.sh` with the expected SHA) were run manually and succeeded; the script now looks in the gateway location first. The older `deploy/README.md` path table still names the previous nginx location and should be refreshed. No proxy file was changed or reloaded.
+
+Post-deploy read-only checks: server HEAD equals the expected SHA; API healthy and web running (both replaced, MongoDB and other projects untouched); `/teams`, `/desktop/connect`, `/api/health` and `/login` returned 200; anonymous team APIs, team images and SSE returned 401; `verify-teams.cjs` passed including required indexes; the new `teamprojects` collection and its `(teamId,archivedAt)` index exist; the deployed frontend bundle contains the delivery and project UI. No production accounts, tasks or projects were created, so signed-in delivery behavior in production was not exercised.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.
