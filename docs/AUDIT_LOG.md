@@ -507,6 +507,16 @@ Application commit `0a387d4b1a105e6af0596f76bbf9bba8335d3938` was pushed to main
 
 Post-deploy read-only checks: server HEAD equals the deployed SHA; `/teams`, `/login`, `/api/health` and `/desktop/connect` returned 200; anonymous access to the new versions endpoint returned 401; `verify-teams.cjs` passed; the deployed frontend bundle contains the viewer and version-gallery text. All other containers (silvergym, qmona, gateway-nginx, other databases) kept their previous uptimes. No production images or accounts were created, so a signed-in viewer/markup session on production was not exercised and should be tried once by the user.
 
+## 2026-11-22 - Personal API keys for AI agents
+
+User request: let an AI agent read (and, when switched on, change) the user's own Dayflow data without copying details by hand. Decisions: keys behave like the user's own access token, never expire, can be rotated or deleted, and have one "Allow changes" toggle (off by default = read-only, takes effect immediately). A key never gets admin rights and cannot manage keys or call `/api/auth/*`. The public guide (`GET /api/agent/docs`, page `/api-docs`) documents the data model, lookups, reads, writes and the rule that agents explain a write and wait for a yes. Contracts: `docs/AGENT_API.md`, `API_SPEC.md`, `DATABASE_SCHEMA.md` (`apikeys`). Added server-side filters for personal data (`/api/agent/tasks`, `/api/agent/notes`) after the guide author found none existed. Independent review fixes: superadmin keys are blocked from admin routes (`requireRole` re-reads the role), and the SSE heartbeat no longer ends key streams.
+
+Verification (independent): backend 110 tests, frontend 47 unit tests, root `npm run check` passed, full Playwright suite 25 tests passed (new `api-keys.spec.ts` covers create, read-only 403, toggle, rotate, delete, signed-out guide and an axe scan).
+
+### API keys deployment evidence
+
+Commit `88291ae` pushed to main and deployed with `deploy/update.sh` (no data migration; the `apikeys` collection is created on first use; no backup taken because nothing existing changed). Only `dayflow-api` and `dayflow-web` were recreated; one transient 502 cleared. Post-deploy: `/`, `/api-docs`, `/api/agent/docs`, `/api/health` returned 200; anonymous `/api/agent/me` and `/api/keys` returned 401; a bogus key returned 401 "Invalid API key". All other containers kept their uptimes. A real signed-in key was not created in production; the user should create one and try the guide.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.
