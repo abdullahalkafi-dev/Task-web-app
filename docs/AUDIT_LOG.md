@@ -501,6 +501,12 @@ Independently verified locally: backend typecheck/lint and tests (new tests for 
 
 Deployment evidence is recorded in a follow-up entry.
 
+### Image viewer and versions deployment evidence
+
+Application commit `0a387d4b1a105e6af0596f76bbf9bba8335d3938` was pushed to main and deployed with the corrected `deploy/teams-rollout.sh` (copied to the server first, as the runbook describes, so the gateway proxy path fix applied). Previous server checkout: `620a4a6`. Backup: `/home/deploy/backups/task-web-app/teams-20261122T080848Z` (MongoDB, uploads, previous commit and proxy configuration; SHA-256 verified). Only `dayflow-api` and `dayflow-web` were replaced; one transient 502 while the web container started cleared on the script's retry.
+
+Post-deploy read-only checks: server HEAD equals the deployed SHA; `/teams`, `/login`, `/api/health` and `/desktop/connect` returned 200; anonymous access to the new versions endpoint returned 401; `verify-teams.cjs` passed; the deployed frontend bundle contains the viewer and version-gallery text. All other containers (silvergym, qmona, gateway-nginx, other databases) kept their previous uptimes. No production images or accounts were created, so a signed-in viewer/markup session on production was not exercised and should be tried once by the user.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.
