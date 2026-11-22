@@ -6,6 +6,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { DataProvider } from "@/hooks/useData";
+import { ImageViewerHost } from "@/components/images/ImageViewerHost";
 
 function ShellSkeleton() {
   return (
@@ -29,6 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <DataProvider key={user.id} userId={user.id}>
       <Suspense fallback={<ShellSkeleton />}>
         <AppShell>{children}</AppShell>
+        <ImageViewerHost />
       </Suspense>
     </DataProvider>
   );

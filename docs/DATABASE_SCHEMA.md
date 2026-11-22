@@ -19,7 +19,7 @@ Personal schemas and the sync protocol are unchanged. See [Teams](TEAMS.md).
 | teamprojects | UUID, teamId, name, createdBy, createdAt, updatedAt, nullable archivedAt; `(teamId,archivedAt)` |
 | teammessages | Client UUID for retry deduplication, teamId, taskId, authorId, bodyText, sanitized bodyHtml, createdAt, deletedAt; `(teamId,taskId,createdAt desc,_id desc)` |
 | teamtaskreads | teamId, taskId, userId, lastReadAt; unique `(taskId,userId)` |
-| teamuploads | teamId, filename, createdAt; teamId index; files under `uploads/teams/<teamId>/` |
+| teamuploads | teamId, filename, nullable replacesFilename (previous hidden version), createdAt; teamId index, `(teamId,filename)`; files under `uploads/teams/<teamId>/` |
 
 All IDs are string UUIDs. Embedded events contain id, nullable actorId, type,
 from/to and at, and append atomically with task mutations. Messages have strictly
@@ -113,3 +113,6 @@ remain in Android-backed SecureStore, outside SQLite/editor HTML. After 30 days
 without sync, a full snapshot is reconciled before pushing. Missing previously
 synced documents are removed locally, retaining pending edits as recovery copies;
 never-uploaded new documents remain queued. See [Android guide](ANDROID.md).
+
+Personal `uploads` records also carry nullable `replacesFilename`. Replaced images are never
+deleted: markup edits create a new file and record that points back to the previous one.

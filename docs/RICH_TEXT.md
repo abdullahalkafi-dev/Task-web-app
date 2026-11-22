@@ -64,3 +64,24 @@ Deploy backend support alongside/before the new frontend, using the existing
 backup-first VPS workflow. No nginx, MongoDB schema or native binary change is
 needed. Automated evidence belongs in AUDIT_LOG.md; real application/browser
 clipboard variations beyond synthetic fixtures remain manual acceptance checks.
+
+## Image viewer, markup and hidden versions
+
+Clicking any image in rich text (task and note descriptions, team task descriptions,
+team chat messages, History) opens a full-screen viewer, mounted once for the signed-in
+app. It supports zoom (buttons, wheel, pinch, double-click), drag to pan, previous/next
+across the images of that description, Esc to close and a **Download** button.
+
+Where the description is editable and the image is stored on the server, **Mark up**
+opens a canvas editor (pen, highlighter, arrow, rectangle, circle, text; colors and
+sizes; undo/redo/clear). Saving uploads the result as a new image, sends the existing
+upload route a `replaces` field naming the previous file, and swaps the image in the
+description. Markup needs a connection and is not offered for offline (not yet uploaded)
+images, read-only views such as chat messages, or when viewing an older version.
+
+The previous file is **never deleted or shown in the description**. It stays on disk and
+in the database, linked from the new image (`replacesFilename`), so edits form a chain.
+When an image has earlier versions, the viewer shows a gallery strip (Latest, Edit n,
+Original, with dates); choosing one views or downloads it without changing the
+description. Chains are capped at 25 versions when listed. Storage counts include the
+hidden originals; deleting a team removes its images and records with the team.

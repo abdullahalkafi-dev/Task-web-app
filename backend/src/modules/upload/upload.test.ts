@@ -68,4 +68,31 @@ describe("uploads", () => {
     expect((await request(app).get(`/uploads/${a.user.id}/..%2Fsecret.txt`).set(bearer(a.token))).status).toBe(400);
     expect((await request(app).get(`/uploads/${a.user.id}/${"0".repeat(8)}-0000-0000-0000-${"0".repeat(12)}.webp`).set(bearer(a.token))).status).toBe(404);
   });
+
+  it("keeps the previous image hidden when a markup edit replaces it, and lists the version chain to the owner only", async () => {
+    const a = await createUserWithToken("alice");
+    const b = await createUserWithToken("bob");
+    const original = await request(app).post("/api/uploads").set(bearer(a.token)).attach("file", await pngBuffer(400, 300), "a.png");
+    const originalFile = original.body.url.split("/").pop() as string;
+    const edit1 = await request(app).post("/api/uploads").set(bearer(a.token)).field("replaces", originalFile).attach("file", await pngBuffer(400, 300), "m.png");
+    expect(edit1.status).toBe(201);
+    const edit1File = edit1.body.url.split("/").pop() as string;
+    const edit2 = await request(app).post("/api/uploads").set(bearer(a.token)).field("replaces", edit1File).attach("file", await pngBuffer(400, 300), "m.png");
+    const edit2File = edit2.body.url.split("/").pop() as string;
+    // The original files are still stored and still served to the owner.
+    expect((await request(app).get(original.body.url).set("Cookie", `dayflow_token=${a.token}`)).status).toBe(200);
+    const chain = await request(app).get(`/api/uploads/${a.user.id}/${edit2File}/versions`).set(bearer(a.token));
+    expect(chain.status).toBe(200);
+    expect(chain.body.versions.map((v: { url: string }) => v.url)).toEqual([edit2.body.url, edit1.body.url, original.body.url]);
+    const plain = await request(app).get(`/api/uploads/${a.user.id}/${originalFile}/versions`).set(bearer(a.token));
+    expect(plain.body.versions).toHaveLength(1);
+    expect((await request(app).get(`/api/uploads/${a.user.id}/${edit2File}/versions`).set(bearer(b.token))).status).toBe(403);
+    expect((await request(app).get(`/api/uploads/${a.user.id}/${edit2File}/versions`)).status).toBe(401);
+    // Cannot claim to replace someone else's (or a missing) image.
+    const foreign = await request(app).post("/api/uploads").set(bearer(b.token)).field("replaces", originalFile).attach("file", await pngBuffer(400, 300), "m.png");
+    expect(foreign.status).toBe(400);
+    expect(foreign.body.error.code).toBe("INVALID_REPLACES");
+    const bogus = await request(app).post("/api/uploads").set(bearer(a.token)).field("replaces", "../etc/passwd").attach("file", await pngBuffer(400, 300), "m.png");
+    expect(bogus.status).toBe(400);
+  });
 });

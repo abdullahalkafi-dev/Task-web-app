@@ -491,6 +491,16 @@ Application commit `504e24f31d9ff94cd6314cf9fa8a7b7577df0405` was pushed to main
 
 Post-deploy read-only checks: server HEAD equals the expected SHA; API healthy and web running (both replaced, MongoDB and other projects untouched); `/teams`, `/desktop/connect`, `/api/health` and `/login` returned 200; anonymous team APIs, team images and SSE returned 401; `verify-teams.cjs` passed including required indexes; the new `teamprojects` collection and its `(teamId,archivedAt)` index exist; the deployed frontend bundle contains the delivery and project UI. No production accounts, tasks or projects were created, so signed-in delivery behavior in production was not exercised.
 
+## 2026-11-22 — Full-screen image viewer, markup and hidden image versions (web/backend)
+
+Request: clicking a pasted screenshot should open it large, with download and red-mark editing; the original must be kept for safety. Decisions (user-confirmed): saving markup replaces the image in the description while the previous file stays in storage and the database; there is no restore button — earlier versions are shown only as a gallery strip inside the full-screen viewer (view/download only); applies to personal tasks, notes, team tasks and wherever rich-text images appear (team chat messages are view-only because messages are append-only); markup is online-only for now.
+
+Compatibility: new nullable `replacesFilename` on `uploads` and `teamuploads`, optional `replaces` upload field and two read-only versions endpoints; existing images and clients are unaffected. No sync contract change; Android's editor is unchanged.
+
+Independently verified locally: backend typecheck/lint and tests (new tests for version chains, ownership and invalid `replaces` for personal and team uploads), frontend typecheck/lint/unit tests, and the full Playwright suite (24 tests) including two new tests: personal note viewer/markup/versions after reload with an axe scan of the open viewer, and a team task marked up with the original still served. Screenshots of the viewer and markup were inspected at desktop and 390px widths. E2E ran with the API on port 4010 because port 4000 was occupied by another local project. Not run: real touch-device pinch/draw, very large images.
+
+Deployment evidence is recorded in a follow-up entry.
+
 ## Future entry format
 
 Record date/request, decisions and compatibility impact, commit(s), actual tests and limits, deployed revision, installer version/hash, backup/rollback references, feedback and remaining work. Append corrections instead of erasing prior release history. Keep secrets and personal content out of this log.

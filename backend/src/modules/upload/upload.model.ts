@@ -11,6 +11,7 @@ const uploadSchema = new Schema<IUpload>(
     size: { type: Number, required: true },
     width: { type: Number, required: true },
     height: { type: Number, required: true },
+    replacesFilename: { type: String, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

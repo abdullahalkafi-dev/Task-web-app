@@ -128,8 +128,10 @@ const uploadSchema = new Schema<ITeamUpload>({
   _id: id,
   teamId: { type: String, required: true, index: true },
   filename: { type: String, required: true },
+  replacesFilename: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
+uploadSchema.index({ teamId: 1, filename: 1 });
 export const TeamModel = model<ITeam>("Team", teamSchema);
 export const TeamProjectModel = model<ITeamProject>(
   "TeamProject",

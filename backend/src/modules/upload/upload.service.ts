@@ -5,7 +5,7 @@ import multer from "multer";
 import sharp from "sharp";
 import { config } from "../../config/env";
 import { AppError } from "../../utils/AppError";
-import type { IUploadInput, IUploadResult } from "./upload.interface";
+import type { IImageVersion, IUploadInput, IUploadResult } from "./upload.interface";
 import { UploadModel } from "./upload.model";
 
 const MAX_WIDTH = 1600;
@@ -20,8 +20,20 @@ function userDir(userId: string): string {
   return path.join(config.UPLOAD_ROOT, userId);
 }
 
-export async function saveImage(userId: string, input: IUploadInput | undefined): Promise<IUploadResult> {
+export const IMAGE_FILE_RE = /^[a-f0-9-]{36}\.(webp|gif)$/;
+export const MAX_VERSION_CHAIN = 25;
+
+export async function saveImage(
+  userId: string,
+  input: IUploadInput | undefined,
+  replaces?: string,
+): Promise<IUploadResult> {
   if (!input) throw new AppError(400, "NO_FILE", "Attach an image as the 'file' field");
+  if (replaces !== undefined) {
+    // Markup edit: the previous file stays on disk and in the database, hidden from the description.
+    if (!IMAGE_FILE_RE.test(replaces) || !(await UploadModel.exists({ userId, filename: replaces })))
+      throw new AppError(400, "INVALID_REPLACES", "The image being edited was not found");
+  }
 
   let format: string | undefined;
   try {
@@ -63,7 +75,7 @@ export async function saveImage(userId: string, input: IUploadInput | undefined)
     mime = "image/webp";
   }
 
-  await UploadModel.create({ _id: id, userId, filename, mime, size, width, height });
+  await UploadModel.create({ _id: id, userId, filename, mime, size, width, height, replacesFilename: replaces ?? null });
   return { url: `/uploads/${userId}/${filename}`, width, height };
 }
 
@@ -77,4 +89,27 @@ export async function resolveOwnedFile(requesterId: string, ownerId: string, fil
     throw new AppError(404, "NOT_FOUND", "Image not found");
   }
   return abs;
+}
+
+/** Newest-first chain of an image and the earlier versions it replaced (owner only). */
+export async function imageVersions(requesterId: string, ownerId: string, file: string): Promise<IImageVersion[]> {
+  if (requesterId !== ownerId) throw new AppError(403, "FORBIDDEN", "This image belongs to another account");
+  const versions: IImageVersion[] = [];
+  const seen = new Set<string>();
+  let name: string | null = file;
+  while (name && versions.length < MAX_VERSION_CHAIN && !seen.has(name)) {
+    seen.add(name);
+    const record: { filename: string; width: number; height: number; createdAt: Date; replacesFilename?: string | null } | null =
+      await UploadModel.findOne({ userId: ownerId, filename: name }).lean();
+    if (!record) break;
+    versions.push({
+      url: `/uploads/${ownerId}/${record.filename}`,
+      width: record.width,
+      height: record.height,
+      createdAt: record.createdAt.toISOString(),
+    });
+    name = record.replacesFilename ?? null;
+  }
+  if (!versions.length) throw new AppError(404, "NOT_FOUND", "Image not found");
+  return versions;
 }

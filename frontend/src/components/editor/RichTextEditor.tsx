@@ -29,6 +29,10 @@ import { useData } from "@/hooks/useData";
 import { api, ApiError } from "@/lib/api";
 import { containsLocalImages, hydrateLocalImages } from "@/lib/html";
 import { queueImage } from "@/lib/repo";
+import {
+  IMAGE_REPLACE_EVENT,
+  type ImageReplaceDetail,
+} from "../images/ImageViewerHost";
 import type { Entity } from "@/lib/types";
 import { cn } from "../ui/cn";
 import { Menu } from "../ui/Menu";
@@ -299,6 +303,42 @@ export function RichTextEditor({
 
   useEffect(() => {
     editorRef.current = editor;
+  }, [editor]);
+
+  // A marked-up image (from the full-screen viewer) replaces the image it came from.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onReplace = (event: Event) => {
+      const { from, to, node } = (event as CustomEvent<ImageReplaceDetail>)
+        .detail;
+      const { state, view } = editor;
+      const isTarget = (pos: number): boolean => {
+        const at = state.doc.nodeAt(pos);
+        return at?.type.name === "image" && at.attrs.src === from;
+      };
+      let target = -1;
+      if (node?.isConnected) {
+        try {
+          const pos = view.posAtDOM(node, 0);
+          target = [pos, pos - 1, pos + 1].find(isTarget) ?? -1;
+        } catch {
+          /* fall back to the first matching image */
+        }
+      }
+      if (target < 0)
+        state.doc.descendants((child, pos) => {
+          if (target < 0 && child.type.name === "image" && child.attrs.src === from)
+            target = pos;
+        });
+      if (target < 0) return;
+      const at = state.doc.nodeAt(target)!;
+      view.dispatch(
+        state.tr.setNodeMarkup(target, undefined, { ...at.attrs, src: to }),
+      );
+    };
+    dom.addEventListener(IMAGE_REPLACE_EVENT, onReplace);
+    return () => dom.removeEventListener(IMAGE_REPLACE_EVENT, onReplace);
   }, [editor]);
 
   // Offline images: blob: URLs die with the page, so re-create them from the stored Blobs.

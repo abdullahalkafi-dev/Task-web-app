@@ -1161,9 +1161,20 @@ export async function upload(
   teamId: string,
   userId: string,
   file?: { buffer: Buffer },
+  replaces?: string,
 ): Promise<{ url: string; width: number; height: number }> {
   await requireMember(teamId, userId);
   if (!file) throw new AppError(400, "NO_FILE", "Attach an image.");
+  if (
+    replaces !== undefined &&
+    (!/^[a-f0-9-]{36}.(webp|gif)$/.test(replaces) ||
+      !(await TeamUploadModel.exists({ teamId, filename: replaces })))
+  )
+    throw new AppError(
+      400,
+      "INVALID_REPLACES",
+      "The image being edited was not found.",
+    );
   let meta: sharp.Metadata;
   try {
     meta = await sharp(file.buffer, {
@@ -1196,7 +1207,11 @@ export async function upload(
     const filename = `${randomUUID()}.${meta.format === "gif" ? "gif" : "webp"}`;
     await fs.mkdir(teamDirectory(teamId), { recursive: true });
     await fs.writeFile(path.join(teamDirectory(teamId), filename), result.data);
-    await TeamUploadModel.create({ teamId, filename });
+    await TeamUploadModel.create({
+      teamId,
+      filename,
+      replacesFilename: replaces ?? null,
+    });
     return {
       url: `/uploads/teams/${teamId}/${filename}`,
       width: result.info.width,
@@ -1216,4 +1231,30 @@ export async function resolveImage(
   )
     throw new AppError(404, "NOT_FOUND", "Image not found.");
   return path.join(teamDirectory(teamId), filename);
+}
+
+/** Newest-first chain of a team image and the earlier versions it replaced. */
+export async function imageVersions(
+  teamId: string,
+  userId: string,
+  filename: string,
+): Promise<{ url: string; createdAt: string }[]> {
+  await requireMember(teamId, userId);
+  const versions: { url: string; createdAt: string }[] = [];
+  const seen = new Set<string>();
+  let name: string | null = filename;
+  while (name && versions.length < 25 && !seen.has(name)) {
+    seen.add(name);
+    if (!/^[a-f0-9-]{36}.(webp|gif)$/.test(name)) break;
+    const record: { filename: string; createdAt: Date; replacesFilename?: string | null } | null =
+      await TeamUploadModel.findOne({ teamId, filename: name }).lean();
+    if (!record) break;
+    versions.push({
+      url: `/uploads/teams/${teamId}/${record.filename}`,
+      createdAt: record.createdAt.toISOString(),
+    });
+    name = record.replacesFilename ?? null;
+  }
+  if (!versions.length) throw new AppError(404, "NOT_FOUND", "Image not found.");
+  return versions;
 }

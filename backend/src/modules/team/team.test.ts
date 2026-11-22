@@ -498,6 +498,49 @@ describe("team tasks, conflicts and history", () => {
     }
   });
 });
+describe("team image versions", () => {
+  it("keeps replaced team images hidden and lists versions to members only", async () => {
+    const { owner, member, outsider, team, base } = await fixture();
+    const png = (color: string) =>
+      sharp({ create: { width: 300, height: 200, channels: 3, background: color } })
+        .png()
+        .toBuffer();
+    const upload = async (token: string, replaces?: string) => {
+      const req = request(app).post(`${base}/uploads`).set(bearer(token));
+      if (replaces) req.field("replaces", replaces);
+      return req.attach("file", await png("#cc3333"), "a.png");
+    };
+    const first = await upload(owner.token);
+    expect(first.status).toBe(201);
+    const firstFile = first.body.url.split("/").pop() as string;
+    const second = await upload(member.token, firstFile);
+    expect(second.status).toBe(201);
+    const secondFile = second.body.url.split("/").pop() as string;
+    // Original is still served to members after being replaced.
+    expect(
+      (await request(app).get(first.body.url).set(bearer(owner.token))).status,
+    ).toBe(200);
+    const chain = await request(app)
+      .get(`${base}/uploads/${secondFile}/versions`)
+      .set(bearer(owner.token));
+    expect(chain.status).toBe(200);
+    expect(chain.body.versions.map((v: { url: string }) => v.url)).toEqual([
+      second.body.url,
+      first.body.url,
+    ]);
+    expect(
+      (
+        await request(app)
+          .get(`${base}/uploads/${secondFile}/versions`)
+          .set(bearer(outsider.token))
+      ).status,
+    ).toBe(403);
+    const missing = await upload(owner.token, `${"0".repeat(8)}-0000-0000-0000-${"0".repeat(12)}.webp`);
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.code).toBe("INVALID_REPLACES");
+    expect(team.id).toBeTruthy();
+  });
+});
 describe("projects and delivery tracking", () => {
   it("creates an optional first project and manages projects without losing task labels", async () => {
     const { owner, member, outsider, team, base } = await fixture();

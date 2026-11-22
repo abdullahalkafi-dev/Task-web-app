@@ -9,6 +9,9 @@ import { fileParamsSchema } from "./upload.validation";
 export const uploadApiRouter = Router();
 uploadApiRouter.post("/", authenticate, uploadMiddleware, controller.upload);
 
+/** GET /api/uploads/:userId/:file/versions — hidden earlier versions of an edited image. */
+uploadApiRouter.get("/:userId/:file/versions", authenticate, validate({ params: fileParamsSchema }), controller.versions);
+
 /** GET /uploads/:userId/:file — plain <img src>, authenticated by the httpOnly cookie. */
 export const uploadFileRouter = Router();
 uploadFileRouter.get("/:userId/:file", authenticate, validate({ params: fileParamsSchema }), controller.serve);

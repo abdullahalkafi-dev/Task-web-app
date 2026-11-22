@@ -42,7 +42,8 @@ Creator-only actions are enforced server-side. See [Teams](TEAMS.md).
 | GET /:id/tasks/:taskId/messages | `?before=messageUuid` → `{ messages,people,hasMore }`, last 50 chronologically |
 | POST /:id/tasks/:taskId/messages | `{ id:uuid,bodyText,bodyHtml }` → 201 `{ ok:true }`; retry idempotent |
 | POST /:id/tasks/:taskId/read | `{ messageId }` → `{ ok:true }`; monotonically advances to that message's server time |
-| POST /:id/uploads | Multipart file → 201 `{ url,width,height }` |
+| POST /:id/uploads | Multipart file (+ optional `replaces` = filename of an existing team image being marked up) → 201 `{ url,width,height }`; unknown `replaces` → 400 `INVALID_REPLACES` |
+| GET /:id/uploads/:file/versions | `{ versions:[{url,createdAt}] }` newest first, including the file and the earlier versions it replaced; members only |
 
 TeamStatus is todo/in_progress/completed. assigneeId is null or an active member;
 projectId is null or an active project of the team; clientDate/plannedDeliveryDate are
@@ -169,3 +170,10 @@ Pull filters on the server-side `serverUpdatedAt` (not the client's `updatedAt`)
 ### GET /uploads/:userId/:file
 Mounted at `/uploads` (not `/api`). A safe GET, so it accepts the httpOnly cookie (an `<img src>` cannot send headers) or a Bearer header. File names must match `<uuid>.webp|gif`.
 Image with `Cache-Control: private, max-age=31536000, immutable`. 401 unauthenticated, 403 if `:userId` ≠ caller, 404 missing.
+
+## Personal image versions
+
+POST `/api/uploads` accepts an optional multipart text field `replaces` (filename of one of
+the caller's own images). The previous file is kept hidden and linked from the new record.
+GET `/api/uploads/:userId/:file/versions` → `{ versions:[{url,width,height,createdAt}] }`
+newest first (owner only; 403 for others, 401 anonymous, at most 25 entries).

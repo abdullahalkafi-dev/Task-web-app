@@ -71,6 +71,7 @@ teamRouter.post(
   uploadMiddleware,
   c.upload,
 );
+teamRouter.get("/:id/uploads/:file/versions", c.imageVersions);
 export const teamFileRouter = Router();
 teamFileRouter.use(noStore);
 teamFileRouter.get("/:id/:file", authenticate, c.serveImage);

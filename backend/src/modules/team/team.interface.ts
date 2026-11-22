@@ -82,5 +82,6 @@ export interface ITeamUpload {
   _id: string;
   teamId: string;
   filename: string;
+  replacesFilename: string | null;
   createdAt: Date;
 }

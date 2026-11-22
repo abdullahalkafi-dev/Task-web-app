@@ -1,6 +1,10 @@
 import { catchAsync } from "../../utils/catchAsync";
 import * as service from "./team.service";
 import * as schemas from "./team.validation";
+const replacesOf = (body: unknown): string | undefined => {
+  const value = (body as { replaces?: unknown } | undefined)?.replaces;
+  return typeof value === "string" ? value : undefined;
+};
 export const list = catchAsync(async (req, res) => {
   res.json({ teams: await service.listTeams(req.user.id) });
 });
@@ -191,7 +195,14 @@ export const read = catchAsync(async (req, res) => {
 export const upload = catchAsync(async (req, res) => {
   res
     .status(201)
-    .json(await service.upload(req.params.id, req.user.id, req.file));
+    .json(
+      await service.upload(
+        req.params.id,
+        req.user.id,
+        req.file,
+        replacesOf(req.body),
+      ),
+    );
 });
 export const serveImage = catchAsync(async (req, res) => {
   const file = await service.resolveImage(
@@ -205,5 +216,14 @@ export const serveImage = catchAsync(async (req, res) => {
       "Cache-Control": "private, no-store",
       Vary: "Cookie, Authorization",
     },
+  });
+});
+export const imageVersions = catchAsync(async (req, res) => {
+  res.json({
+    versions: await service.imageVersions(
+      req.params.id,
+      req.user.id,
+      req.params.file,
+    ),
   });
 });
