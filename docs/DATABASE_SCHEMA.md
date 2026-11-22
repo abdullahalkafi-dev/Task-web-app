@@ -116,3 +116,18 @@ never-uploaded new documents remain queued. See [Android guide](ANDROID.md).
 
 Personal `uploads` records also carry nullable `replacesFilename`. Replaced images are never
 deleted: markup edits create a new file and record that points back to the previous one.
+
+## apikeys (personal API keys)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| _id | string (uuid) | |
+| userId | string | owner |
+| name | string | label chosen by the owner |
+| prefix | string | first characters of the key, for display only |
+| hash | string | SHA-256 of the full key; **unique**; the key itself is never stored |
+| write | boolean | "Allow changes"; `false` = read-only; default `false` |
+| createdAt | Date | |
+| lastUsedAt | Date or null | updated when the key is used |
+
+Index: `userId` (list a user's keys); unique `hash` (lookup on every request). Deleting or rotating a key removes/replaces the hash, so the old key stops working at once.

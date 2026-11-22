@@ -5,6 +5,9 @@ import { syncRouter } from "../modules/sync/sync.route";
 import { taskRouter } from "../modules/task/task.route";
 import { uploadApiRouter, uploadFileRouter } from "../modules/upload/upload.route";
 import { userRouter } from "../modules/user/user.route";
+import { apiKeyRouter } from "../modules/apikey/apikey.route";
+import { agentRouter } from "../modules/agent/agent.route";
+import { blockApiKeyHeader } from "../middleware/auth";
 import { teamRouter, teamFileRouter } from "../modules/team/team.route";
 
 /** Mounted at /api */
@@ -12,7 +15,9 @@ export const apiRouter = Router();
 apiRouter.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
-apiRouter.use("/auth", authRouter);
+apiRouter.use("/auth", blockApiKeyHeader, authRouter);
+apiRouter.use("/keys", apiKeyRouter);
+apiRouter.use("/agent", agentRouter);
 apiRouter.use("/users", userRouter);
 apiRouter.use("/teams", teamRouter);
 apiRouter.use("/tasks", taskRouter);

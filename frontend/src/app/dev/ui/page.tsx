@@ -134,7 +134,7 @@ export default function DevUiPage() {
               <ProfileCard name="Mike Cooper" subtitle="Member" />
             </div>
             <div className="flex h-[420px] items-stretch [&>nav]:flex">
-              <IconRail isAdmin onHelp={() => undefined} onLogout={() => undefined} />
+              <IconRail isAdmin onHelp={() => undefined} onKeys={() => undefined} onLogout={() => undefined} />
             </div>
             <Card className="w-56 p-5" interactive>Hover lift card</Card>
           </div>

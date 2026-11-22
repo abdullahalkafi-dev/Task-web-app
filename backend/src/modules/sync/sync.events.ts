@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import type { Request, Response } from "express";
 import { verifyToken } from "../auth/auth.service";
+import { ApiKeyModel } from "../apikey/apikey.model";
 
 // Current deployment has one backend process. Multi-instance hosting needs shared pub/sub.
 const events = new EventEmitter();
@@ -17,7 +18,16 @@ export function streamChanges(req: Request, res: Response): void {
   const unsubscribe = subscribeUser(req.user.id, send);
   send(); // Reconnect always triggers a pull, so missed events are harmless.
   const bearer = req.headers.authorization?.slice(7).trim();
+  const keyId = req.apiKey?.id;
   const heartbeat = setInterval(() => {
+    if (keyId) {
+      // API keys do not expire; the stream ends only when the key is deleted or rotated.
+      void ApiKeyModel.exists({ _id: keyId }).then(
+        (found) => { if (found) res.write(": heartbeat\n\n"); else res.end(); },
+        () => undefined,
+      );
+      return;
+    }
     if (!bearer || !verifyToken(bearer)) { res.end(); return; }
     res.write(": heartbeat\n\n");
   }, 20_000);

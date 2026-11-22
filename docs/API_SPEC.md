@@ -177,3 +177,15 @@ POST `/api/uploads` accepts an optional multipart text field `replaces` (filenam
 the caller's own images). The previous file is kept hidden and linked from the new record.
 GET `/api/uploads/:userId/:file/versions` → `{ versions:[{url,width,height,createdAt}] }`
 newest first (owner only; 403 for others, 401 anonymous, at most 25 entries).
+
+## API keys and agent endpoints
+
+Personal API keys (`dfk_...`) let an AI agent use an account. Send `Authorization: Bearer <key>`. A key acts as its owner (personal data and the owner's teams), has no admin powers and cannot call `/api/keys` or `/api/auth/*` (403 `KEY_NOT_ALLOWED`). Each key has a `write` flag, off by default: a read-only key gets 403 `{ error: { code: "KEY_READ_ONLY" } }` on every non-GET request. The owner changes it in the app (profile menu > API keys) and it applies on the next request. Keys never expire; rotate or delete them (a rotated or deleted key returns 401 `UNAUTHORIZED`). Uploaded images under `/uploads/...` also accept the Bearer key.
+
+| Method/path | Auth | Result |
+| --- | --- | --- |
+| GET `/api/agent/me` | session or key | `{ user:{id,email,name}, auth:{type:"api_key"|"session", keyName?, mode:"read"|"write"}, serverTime }` |
+| GET `/api/agent/docs` | public | Markdown guide for agents (source: `backend/src/modules/agent/agent.docs.ts`) |
+| `/api/keys` | session only | create, list, rotate, change the Allow changes flag and delete keys (see the keys module for the exact contract); the secret is shown once |
+
+See [Agent API](AGENT_API.md).

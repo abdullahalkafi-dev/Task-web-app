@@ -6,6 +6,10 @@ import { AppError } from "../utils/AppError";
 /** Checks the role against the database, not the JWT, so role changes and removed accounts apply immediately. */
 export function requireRole(role: UserRole) {
   return (req: Request, _res: Response, next: NextFunction): void => {
+    if (req.apiKey) {
+      next(new AppError(403, "KEY_NOT_ALLOWED", "API keys cannot use this endpoint"));
+      return;
+    }
     findById(req.user.id)
       .then((user) => {
         if (!user) throw new AppError(401, "UNAUTHORIZED", "Account no longer exists");

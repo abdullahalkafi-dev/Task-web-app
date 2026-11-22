@@ -8,6 +8,7 @@
 | [Android guide](ANDROID.md) | Mobile architecture, build/signing, Google setup, permissions, sync and release operations |
 | [Android verification](ANDROID_VERIFICATION.md) | Agreed scope, actual test evidence and outstanding release gates |
 | [API specification](API_SPEC.md) | Endpoint contracts and authentication |
+| [Agent API](AGENT_API.md) | Personal API keys for AI agents, read-only default, security model and keeping the agent guide in sync |
 | [Database schema](DATABASE_SCHEMA.md) | Data, indexes and desktop handoff expiry |
 | [Desktop guide](DESKTOP.md) | Installation, development, packaging, native boundaries, upgrades and troubleshooting |
 | [Desktop completion/verification](DESKTOP_IMPLEMENTATION_PLAN.md) | Implemented scope, test results and manual-check limits |

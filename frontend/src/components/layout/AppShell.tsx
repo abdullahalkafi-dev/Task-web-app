@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useTheme } from "@/hooks/useTheme";
 import { displayName } from "@/lib/types";
+import { ApiKeysDialog } from "../keys/ApiKeysDialog";
 import { HelpDialog } from "../admin/HelpDialog";
 import { NotesSidebar } from "../notes/NotesSidebar";
 import { Button } from "../ui/Button";
@@ -58,6 +59,7 @@ function ShellContent({ children }: { children: ReactNode }) {
   const [notesSheet, setNotesSheet] = useState(false);
   const [meSheet, setMeSheet] = useState(false);
   const [help, setHelp] = useState(false);
+  const [keys, setKeys] = useState(false);
   const [tick, setTick] = useState(0);
 
   const isAdmin = user?.role === "superadmin";
@@ -89,7 +91,7 @@ function ShellContent({ children }: { children: ReactNode }) {
       <div className="min-h-dvh bg-shell" data-desktop-mode={desktop?.mode}>
         {desktop && <DesktopToolbar state={desktop} />}
         <div className="desktop-frame flex min-h-dvh gap-4 p-3 md:h-dvh md:min-h-0 md:overflow-hidden md:p-4 lg:gap-5">
-          <IconRail isAdmin={isAdmin} invitations={invites.length} onHelp={() => setHelp(true)} onLogout={() => void logout()} />
+          <IconRail isAdmin={isAdmin} invitations={invites.length} onHelp={() => setHelp(true)} onKeys={() => setKeys(true)} onLogout={() => void logout()} />
 
           {!inTeams && <aside className="hidden w-[260px] shrink-0 lg:block xl:w-[300px]" aria-label="Notes">
             <NotesSidebar activeId={activeNote} onSelect={selectNote} showHeader />
@@ -178,6 +180,9 @@ function ShellContent({ children }: { children: ReactNode }) {
             <Button variant="soft" icon={<CircleHelp size={18} />} onClick={() => { setMeSheet(false); setHelp(true); }}>
               Help
             </Button>
+            <Button variant="soft" icon={<KeyRound size={18} />} onClick={() => { setMeSheet(false); setKeys(true); }}>
+              API keys
+            </Button>
             <Button variant="secondary" icon={<LogOut size={18} />} onClick={() => void logout()}>
               Log out
             </Button>
@@ -186,6 +191,7 @@ function ShellContent({ children }: { children: ReactNode }) {
       </Dialog>
 
       <HelpDialog open={help} onClose={() => setHelp(false)} />
+      {keys && <ApiKeysDialog onClose={() => setKeys(false)} />}
     </ShellContext.Provider>
   );
 }

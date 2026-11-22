@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleHelp, History, House, LogOut, Moon, Network, Sun, Users } from "lucide-react";
+import { CircleHelp, History, KeyRound, House, LogOut, Moon, Network, Sun, Users } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { IconButton } from "../ui/Button";
 import { cn } from "../ui/cn";
@@ -32,11 +32,13 @@ function NavLink({ href, label, active, children }: { href: string; label: strin
 export function IconRail({
   isAdmin,
   onHelp,
+  onKeys,
   onLogout,
   invitations = 0,
 }: {
   isAdmin: boolean;
   onHelp: () => void;
+  onKeys: () => void;
   onLogout: () => void;
   invitations?: number;
 }) {
@@ -74,6 +76,9 @@ export function IconRail({
       <RailGroup>
         <IconButton label="Help" onClick={onHelp}>
           <CircleHelp size={20} strokeWidth={1.75} />
+        </IconButton>
+        <IconButton label="API keys" onClick={onKeys}>
+          <KeyRound size={20} strokeWidth={1.75} />
         </IconButton>
         <IconButton label="Log out" onClick={onLogout}>
           <LogOut size={20} strokeWidth={1.75} />
